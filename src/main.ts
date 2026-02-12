@@ -9,18 +9,29 @@ async function bootstrap() {
 
   app.use(cookieParser()); // ✅ works perfectly
 
-  const allowedOrigins = ["http://localhost:3200", "http://localhost:3000","https://devadminapi.anylicence.com"];
-
+  const allowedOrigins = [
+    "https://devadmin.anylicence.com",
+    "https://admin.anylicence.com", // add other domains if needed
+    "http://localhost:3200",
+     "http://localhost:3000"
+  ];
+  
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      // allow requests with no origin (like mobile apps, Postman)
+      if (!origin) return callback(null, true);
+  
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
       }
     },
-    credentials: true,
+    credentials: true,  // allow cookies or auth headers
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    allowedHeaders: "Content-Type, Authorization, Accept",
   });
+  
   
   //await app.listen(4000);
   await app.listen(process.env.PORT || 3000);
