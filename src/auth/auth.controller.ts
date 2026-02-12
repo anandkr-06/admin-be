@@ -33,7 +33,9 @@ export class AuthController {
   ) {
     const { accessToken, refreshToken, user } =
       await this.authService.login(dto.email, dto.password);
-  
+  const environment = process.env.NODE_ENV || "development";
+  const isProduction = environment === "production";
+  if (!isProduction) {
     res.cookie("access_token", accessToken, {
       httpOnly: true,
       secure: false,
@@ -41,7 +43,6 @@ export class AuthController {
       path: "/",
       maxAge: 1000 * 60 * 15,
     });
-  
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: false,
@@ -49,6 +50,27 @@ export class AuthController {
       path: "/auth/refresh",
       maxAge: 1000 * 60 * 60 * 24 * 7,
     });
+
+  } else {  
+    res.cookie("access_token", accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      domain: ".anylicence.com",
+      path: "/",
+      maxAge: 1000 * 60 * 15,
+    });
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      domain: ".anylicence.com",
+      path: "/auth/refresh",
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+    });
+  }
+  
+    
   
     return { user, accessToken }; // ✅ NEVER return tokens in body
   }
