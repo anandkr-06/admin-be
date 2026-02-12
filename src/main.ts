@@ -34,7 +34,10 @@ async function bootstrap() {
   
   
   //await app.listen(4000);
-  await app.listen(process.env.PORT || 3000);
+  const isProd = process.env.NODE_ENV === "production";
+  console.log(`Starting server in ${isProd ? "production" : "development"} mode...`);
+  
+  await app.listen(process.env.PORT || isProd ? 3000 : 4000);
 }
 
 bootstrap();

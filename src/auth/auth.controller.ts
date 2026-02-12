@@ -70,9 +70,10 @@ export class AuthController {
     });
   }
   
-    
+  return { user };
+
   
-    return { user, accessToken }; // ✅ NEVER return tokens in body
+    // return { user, accessToken }; // ✅ NEVER return tokens in body
   }
   
   @Post("refresh")
@@ -83,17 +84,24 @@ async refresh(
   const { newAccessToken, newRefreshToken } =
     await this.authService.refreshToken(req);
 
-  res.cookie("access_token", newAccessToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-  });
+    const isProd = process.env.NODE_ENV === "production";
 
-  res.cookie("refresh_token", newRefreshToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/auth/refresh",
-  });
+    res.cookie("access_token", newAccessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      domain: isProd ? ".anylicence.com" : undefined,
+      path: "/",
+    });
+    
+    res.cookie("refresh_token", newRefreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      domain: isProd ? ".anylicence.com" : undefined,
+      path: "/auth/refresh",
+    });
+    
 
   return { success: true };
 }
@@ -104,8 +112,20 @@ async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
   const userId = req.user?.userId;
   await this.authService.logOut(userId);
   
-  res.clearCookie("access_token");
-  res.clearCookie("refresh_token");
+  // res.clearCookie("access_token");
+  // res.clearCookie("refresh_token");
+  const isProd = process.env.NODE_ENV === "production";
+
+res.clearCookie("access_token", {
+  path: "/",
+  domain: isProd ? ".anylicence.com" : undefined,
+});
+
+res.clearCookie("refresh_token", {
+  path: "/auth/refresh",
+  domain: isProd ? ".anylicence.com" : undefined,
+});
+
 
   return { success: true };
 }
