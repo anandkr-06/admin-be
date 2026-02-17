@@ -1,6 +1,7 @@
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import "dotenv/config";
+import { ConfigService } from "@nestjs/config";
 
 const cookieParser = require("cookie-parser"); // ✅ CORRECT
 
@@ -13,6 +14,7 @@ async function bootstrap() {
     "https://devadmin.anylicence.com",
     "https://admin.anylicence.com", // add other domains if needed
     "http://localhost:3200",
+    "http://devadmin.anylicence.com:3200",
      "http://localhost:3000"
   ];
   
@@ -35,9 +37,10 @@ async function bootstrap() {
   
   //await app.listen(4000);
   const isProd = process.env.NODE_ENV === "production";
+  console.log("process.env.NODE_ENV", process.env.NODE_ENV);
   console.log(`Starting server in ${isProd ? "production" : "development"} mode...`);
-  
-  await app.listen(process.env.PORT || isProd ? 3000 : 4000);
+
+  await app.listen(isProd? process.env.PORT || 4000 : 4000);
 }
 
 bootstrap();
