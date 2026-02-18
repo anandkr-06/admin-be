@@ -27,54 +27,36 @@ export class AuthController {
 
 
   @Post("login")
-  async login(
-    @Body() dto: LoginDto,
-    @Res({ passthrough: true }) res: Response
-  ) {
-    const { accessToken, refreshToken, user } =
-      await this.authService.login(dto.email, dto.password);
-  const environment = process.env.NODE_ENV || "development";
-  const isProduction = environment === "production";
-  if (!isProduction) {
-    res.cookie("access_token", accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 1000 * 60 * 15,
-    });
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      path: "/auth/refresh",
-      maxAge: 1000 * 60 * 60 * 24 * 7,
-    });
+async login(
+  @Body() dto: LoginDto,
+  @Res({ passthrough: true }) res: Response
+) {
+  const { accessToken, refreshToken, user } =
+    await this.authService.login(dto.email, dto.password);
 
-  } else {  
-    res.cookie("access_token", accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      domain: ".anylicence.com",
-      path: "/",
-      maxAge: 1000 * 60 * 15,
-    });
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      domain: ".anylicence.com",
-      path: "/auth/refresh",
-      maxAge: 1000 * 60 * 60 * 24 * 7,
-    });
-  }
-  
+  const isHttps = false; // true only if you use HTTPS locally
+
+  res.cookie("access_token", accessToken, {
+    httpOnly: true,
+    secure: isHttps,
+    sameSite: isHttps ? "none" : "lax",
+    domain: ".anylicence.com", // 🔥 REQUIRED
+    path: "/",
+    maxAge: 1000 * 60 * 15,
+  });
+
+  res.cookie("refresh_token", refreshToken, {
+    httpOnly: true,
+    secure: isHttps,
+    sameSite: isHttps ? "none" : "lax",
+    domain: ".anylicence.com", // 🔥 REQUIRED
+    path: "/auth/refresh",
+    maxAge: 1000 * 60 * 60 * 24 * 7,
+  });
+
   return { user };
+}
 
-  
-    // return { user, accessToken }; // ✅ NEVER return tokens in body
-  }
   
   @Post("refresh")
 async refresh(
