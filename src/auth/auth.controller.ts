@@ -36,23 +36,42 @@ async login(
 
   const isHttps = false; // true only if you use HTTPS locally
 
+  // res.cookie("access_token", accessToken, {
+  //   httpOnly: true,
+  //   secure: isHttps,
+  //   sameSite: isHttps ? "none" : "lax",
+  //   domain: ".anylicence.com", // 🔥 REQUIRED
+  //   path: "/",
+  //   maxAge: 1000 * 60 * 15,
+  // });
+
+  // res.cookie("refresh_token", refreshToken, {
+  //   httpOnly: true,
+  //   secure: isHttps,
+  //   sameSite: isHttps ? "none" : "lax",
+  //   domain: ".anylicence.com", // 🔥 REQUIRED
+  //   path: "/auth/refresh",
+  //   maxAge: 1000 * 60 * 60 * 24 * 7,
+  // });
+
   res.cookie("access_token", accessToken, {
     httpOnly: true,
-    secure: isHttps,
-    sameSite: isHttps ? "none" : "lax",
-    domain: ".anylicence.com", // 🔥 REQUIRED
+    secure: true,                 // 🔥 REQUIRED (HTTPS API)
+    sameSite: "none",             // 🔥 REQUIRED (cross-site)
+    domain: ".anylicence.com",    // 🔥 REQUIRED
     path: "/",
     maxAge: 1000 * 60 * 15,
   });
-
+  
   res.cookie("refresh_token", refreshToken, {
     httpOnly: true,
-    secure: isHttps,
-    sameSite: isHttps ? "none" : "lax",
-    domain: ".anylicence.com", // 🔥 REQUIRED
+    secure: true,
+    sameSite: "none",
+    domain: ".anylicence.com",
     path: "/auth/refresh",
     maxAge: 1000 * 60 * 60 * 24 * 7,
   });
+  
 
   return { user };
 }
