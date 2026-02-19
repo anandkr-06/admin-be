@@ -77,7 +77,7 @@ async login(
 }
 
   
-  @Post("refresh")
+@Post("refresh")
 async refresh(
   @Req() req: any,
   @Res({ passthrough: true }) res: Response
@@ -85,27 +85,27 @@ async refresh(
   const { newAccessToken, newRefreshToken } =
     await this.authService.refreshToken(req);
 
-    const isProd = process.env.NODE_ENV === "production";
+  res.cookie("access_token", newAccessToken, {
+    httpOnly: true,
+    secure: true,                 // 🔥 REQUIRED
+    sameSite: "none",             // 🔥 REQUIRED
+    domain: ".anylicence.com",    // 🔥 REQUIRED
+    path: "/",
+    maxAge: 1000 * 60 * 15,
+  });
 
-    res.cookie("access_token", newAccessToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "none" : "lax",
-      domain: isProd ? ".anylicence.com" : undefined,
-      path: "/",
-    });
-    
-    res.cookie("refresh_token", newRefreshToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "none" : "lax",
-      domain: isProd ? ".anylicence.com" : undefined,
-      path: "/auth/refresh",
-    });
-    
+  res.cookie("refresh_token", newRefreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    domain: ".anylicence.com",
+    path: "/auth/refresh",
+    maxAge: 1000 * 60 * 60 * 24 * 7,
+  });
 
   return { success: true };
 }
+
 
   
 @Post("logout")
