@@ -14,8 +14,7 @@ async function bootstrap() {
     "https://devadmin.anylicence.com",
     "https://admin.anylicence.com", // add other domains if needed
     "http://localhost:3200",
-    "http://devtest.anylicence.com:3200",
-    "http://devadmin.anylicence.com:3200",
+    "https://devadmin.anylicence.com:3200",
      "http://localhost:3000"
   ];
   
