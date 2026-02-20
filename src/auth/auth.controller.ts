@@ -13,7 +13,9 @@ export class AuthController {
   @Get("me")
   me(@Req() req: any) {
     const user = req.user;
-
+    if (!user) {
+      throw new UnauthorizedException();
+    }
     return {
       id: user.userId,
       email: user.email,
@@ -89,7 +91,8 @@ async refresh(
     httpOnly: true,
     secure: true,                 // 🔥 REQUIRED
     sameSite: "none",             // 🔥 REQUIRED
-    domain: ".anylicence.com",    // 🔥 REQUIRED
+    // domain: ".anylicence.com",    // 🔥 REQUIRED
+    domain: ".*",    // 🔥 REQUIRED
     path: "/",
     maxAge: 1000 * 60 * 15,
   });
@@ -98,7 +101,8 @@ async refresh(
     httpOnly: true,
     secure: true,
     sameSite: "none",
-    domain: ".anylicence.com",
+    // domain: ".anylicence.com",
+    domain: ".*",    // 🔥 REQUIRED
     path: "/auth/refresh",
     maxAge: 1000 * 60 * 60 * 24 * 7,
   });
