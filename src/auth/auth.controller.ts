@@ -13,6 +13,8 @@ export class AuthController {
   @Get("me")
   me(@Req() req: any) {
     const user = req.user;
+    console.log("Incoming cookies:", req.headers.cookie);
+    
     if (!user) {
       throw new UnauthorizedException();
     }
