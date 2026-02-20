@@ -12,43 +12,16 @@ export class AuthService {
     private jwtService: JwtService
   ) {}
   
-  // async login(email: string, password: string) {
-    
-  //     console.log("JWT SIGN SECRET =", this.jwtService["options"]?.secret);
-    
-    
-    
-  //   const user = await this.userModel.findOne({ email });
-  //   if (!user) {
-  //     throw new UnauthorizedException("Invalid credentials");
-  //   }
-
-  //   const valid = await bcrypt.compare(password, user.password);
-  //   if (!valid) throw new UnauthorizedException("Invalid credentials");
-
-  //   const payload = { sub: user._id, role: user.role,email:user.email };
-
-  //   const token = this.jwtService.sign(payload);
-
-  //   return {
-  //     accessToken: token,
-  //     role: user.role,
-  //     user: {
-  //       "id":user._id,
-  //       "email":user.email,
-  //       "role":user.role
-  //     }
-  //   };
-  // }
-
+  
   async login(email: string, password: string) {
-    const user = await this.userModel.findOne({ email });
+    const emailtoLower = email.toLowerCase().toString();
+    const user = await this.userModel.findOne({ email:emailtoLower });
     if (!user) throw new UnauthorizedException();
   
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new UnauthorizedException();
   
-    const payload = { sub: user._id, role: user.role };
+    const payload = { sub: user._id, role: user.role, email: user.email, name: user.name };
   
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: "15m",
