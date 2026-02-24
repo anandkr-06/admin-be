@@ -9,6 +9,7 @@ import { CourseProvidersModule } from './courseproviders/courseproviders.module'
 import { LeadsModule } from './leads/leads.module';
 import { FeedbacksModule } from './feedbacks/feedbacks.module';
 import { GiftVouchersModule } from './giftvouchers/giftvouchers.module';
+import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { GiftVouchersModule } from './giftvouchers/giftvouchers.module';
     LeadsModule,
     FeedbacksModule,
     GiftVouchersModule,
+    OrdersModule,
   ],
 })
 export class AppModule {}
