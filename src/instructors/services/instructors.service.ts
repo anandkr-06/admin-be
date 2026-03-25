@@ -313,4 +313,34 @@ export class InstructorsService {
 
     return { success: true };
   }
+
+
+  async updateVehicles(
+    instructorId: string,
+    dto: { vehicles: { type: 'auto' | 'manual'; image: string }[] },
+  ) {
+    // ✅ Remove duplicate types (important)
+    const uniqueVehiclesMap = new Map();
+  
+    for (const vehicle of dto.vehicles) {
+      uniqueVehiclesMap.set(vehicle.type, vehicle); // overwrite duplicates
+    }
+  
+    const vehicles = Array.from(uniqueVehiclesMap.values());
+  
+    const updated = await this.instructorModel.findByIdAndUpdate(
+      instructorId,
+      { $set: { vehicles } },
+      { new: true },
+    );
+  
+    if (!updated) {
+      throw new NotFoundException('Instructor not found');
+    }
+  
+    return {
+      message: 'Vehicles updated successfully',
+      data: updated,
+    };
+  }
 }

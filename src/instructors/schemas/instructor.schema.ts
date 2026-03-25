@@ -3,6 +3,18 @@ import { Document } from "mongoose";
 
 export type InstructorDocument = User & Document;
 
+@Schema({ _id: false }) // subdocument (important)
+class Vehicle {
+  @Prop({
+    required: true,
+    enum: ['auto', 'manual'],
+  })
+  type: 'auto' | 'manual';
+
+  @Prop({ required: true })
+  image: string;
+}
+
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true })
@@ -20,8 +32,6 @@ export class User {
   @Prop()
   mobile: string;
 
-
-
   @Prop({ default: true })
   isActive: boolean;
 
@@ -34,16 +44,12 @@ export class User {
   @Prop()
   createdAt: Date;
 
-
+  // ✅ NEW FIELD (IMPORTANT)
+  @Prop({
+    type: [Vehicle],
+    default: [],
+  })
+  vehicles: Vehicle[];
 }
 
-
-
 export const InstructorSchema = SchemaFactory.createForClass(User);
-
-//Need to add more api endpoints:
-// GET /admin/instructors/:id/profile
-// GET /admin/instructors/:id/orders?page=1&status=completed
-// GET /admin/instructors/:id/private-learners?search=anand
-// PATCH /admin/instructors/:id/status
-// DELETE /admin/instructors/:id

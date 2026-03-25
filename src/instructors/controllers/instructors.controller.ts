@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, NotFoundException, Query, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Query, Req, UseGuards } from "@nestjs/common";
 import { InstructorsService } from "../services/instructors.service";
 import { AdminInstructorsService } from "../services/admin-instructors.service";
 import { AuthGuard } from "@nestjs/passport";
@@ -6,6 +6,7 @@ import { Patch, Param } from "@nestjs/common";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Types } from "mongoose";
+import { UpdateVehiclesDto } from "../dto/update-vehicles.dto";
 
 @Controller("instructors")
 export class InstructorsController {
@@ -130,4 +131,19 @@ softDelete(@Param("id") id: string) {
     );
   }
 
+  // @Roles("ADMIN")
+@Patch(":id/vehicles")
+updateVehicles(
+  @Param("id") id: string,
+  @Body() dto: UpdateVehiclesDto,
+) {
+  if (!dto.vehicles.length) {
+    throw new BadRequestException('At least one vehicle is required');
+  }
+  if (dto.vehicles.length > 2) {
+    throw new BadRequestException('Only auto and manual allowed');
+  }
+
+  return this.instructorsService.updateVehicles(id, dto);
+}
 }
