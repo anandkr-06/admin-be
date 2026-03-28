@@ -128,6 +128,7 @@ async getCourses(dto: AdminQueryDto) {
           isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
+          url:1,
           provider: {
             _id: '$provider._id',
             instituteName: '$provider.instituteName',
