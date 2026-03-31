@@ -82,7 +82,7 @@ async findAll(queryParams: any) {
   async updateStatus(id: string, isActive: boolean) {
     const updated = this.learnerModel.findByIdAndUpdate(
       id,
-      { isActive },
+      { $set: { isActive } },
       { new: true }
     );
 
