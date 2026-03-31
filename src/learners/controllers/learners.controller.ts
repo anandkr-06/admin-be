@@ -5,11 +5,12 @@ import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { RolesGuard } from "src/auth/roles.guard";
 import { Roles } from "src/auth/roles.decorator";
 import { LearnersService } from "../services/learners.service";
+import { AdminQueryDto } from 'src/common/dto/admin-query.dto';
 
 @Controller("learners")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class LearnersController {
-  constructor(private readonly learnersService: LearnersService) { }
+  constructor(private readonly service: LearnersService) { }
 
 // learners/learners.controller.ts
 // learners.controller.ts
@@ -21,7 +22,7 @@ getAll(
   @Query("search") search?: string,
   @Query("status") status?: "active" | "inactive",
 ) {
-  return this.learnersService.findAll({
+  return this.service.findAll({
     page: Number(page),
     limit: Number(limit),
     search,
@@ -35,7 +36,7 @@ getAll(
 @Roles("ADMIN")
 @Delete(":id")
 softDelete(@Param("id") id: string) {
-  return this.learnersService.softDelete(id);
+  return this.service.softDelete(id);
 }
 
 @Patch(":id/status")
@@ -43,9 +44,56 @@ updateStatus(
   @Param("id") id: string,
   @Body("isActive") isActive: boolean,
 ) {
-  return this.learnersService.updateStatus(id,isActive);
+  return this.service.updateStatus(id,isActive);
 
 }
 
+// ✅ 1. Profile
+  @Get(':id/profile')
+  getProfile(@Param('id') id: string) {
+    return this.service.getProfile(id);
+  }
+
+  // ✅ 2. Orders
+  @Get(':id/orders')
+  getOrders(
+    @Param('id') id: string,
+    @Query() query: AdminQueryDto,
+  ) {
+    return this.service.getOrders(id, query);
+  }
+
+  // ✅ 3. Stats
+  @Get(':id/stats')
+  getStats(@Param('id') id: string) {
+    return this.service.getStats(id);
+  }
+
+  // ✅ 4. Wallet Transactions
+  @Get(':id/wallet')
+  getWallet(
+    @Param('id') id: string,
+    @Query() query: AdminQueryDto,
+  ) {
+    return this.service.getWalletTransactions(id, query);
+  }
+
+  // ✅ 5. Reviews
+  @Get(':id/reviews')
+  getReviews(
+    @Param('id') id: string,
+    @Query() query: AdminQueryDto,
+  ) {
+    return this.service.getReviews(id, query);
+  }
+
+  // ✅ 6. Feedbacks
+  @Get(':id/feedbacks')
+  getFeedbacks(
+    @Param('id') id: string,
+    @Query() query: AdminQueryDto,
+  ) {
+    return this.service.getFeedbacks(id, query);
+  }
 
 }

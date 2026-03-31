@@ -1,18 +1,34 @@
 // learners/learners.service.ts
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { Learner, LearnerDocument } from "../schema/learner.schema";
+import { AdminQueryDto } from "src/common/dto/admin-query.dto";
+import { Order, OrderDocument } from "src/instructors/schemas/orders.schema";
+import { WalletTransaction, WalletTransactionDocument } from "src/instructors/schemas/wallet-transactions.schema";
+
+import { Feedback } from "src/feedbacks/schema/feedbacks.schema";
+import { InstructorReview } from "src/instructors/schemas/instructor-reviews.schema";
 
 
 @Injectable()
 export class LearnersService {
   constructor(
     @InjectModel(Learner.name)
-    private learnerModel: Model<LearnerDocument>
+    private learnerModel: Model<LearnerDocument>,
+    @InjectModel(Order.name)
+    private orderModel: Model<OrderDocument>,
+    @InjectModel(WalletTransaction.name)
+    private walletModel: Model<WalletTransactionDocument>,
+    @InjectModel(InstructorReview.name)
+    private reviewModel: Model<InstructorReview>,
+    @InjectModel(Feedback.name)
+    private feedbackModel: Model<Feedback>,
+    // @InjectModel(Slot.name)
+    // private slotModel: Model<SlotDocument>,
   ) {}
 
-  // learners/learners.service.ts
+  
 // learners.service.ts
 async findAll(queryParams: any) {
     const {
@@ -97,6 +113,178 @@ async findAll(queryParams: any) {
   }
   
   
-  
+  async getProfile(learnerId: string) {
+  const learner = await this.learnerModel.findById(learnerId).select('-password').lean();
+
+  if (!learner) {
+    throw new NotFoundException('Learner not found');
+  }
+
+  return learner;
+}
+
+async getOrders(learnerId: string, dto: AdminQueryDto) {
+  const page = Math.max(Number(dto.page) || 1, 1);
+  const limit = Math.max(Number(dto.limit) || 10, 1);
+  const skip = (page - 1) * limit;
+
+  const filter: any = {
+    learnerId: new Types.ObjectId(learnerId),
+  };
+
+  if (dto.status) filter.status = dto.status;
+
+  // ✅ Date range
+  if (dto.startDate || dto.endDate) {
+    filter.createdAt = {};
+    if (dto.startDate) filter.createdAt.$gte = new Date(dto.startDate);
+    if (dto.endDate) filter.createdAt.$lte = new Date(dto.endDate);
+  }
+
+  const [data, total] = await Promise.all([
+    this.orderModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    this.orderModel.countDocuments(filter),
+  ]);
+
+  return {
+    data,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+async getStats(learnerId: string) {
+  const learnerObjectId = new Types.ObjectId(learnerId);
+
+  const [completedOrders, slotStats] = await Promise.all([
+    this.orderModel.countDocuments({
+      learnerId: learnerObjectId,
+      status: 'COMPLETED',
+    }),
+
+    // this.slotModel.aggregate([
+    //   { $match: { learnerId: learnerObjectId } },
+    //   {
+    //     $group: {
+    //       _id: '$status',
+    //       count: { $sum: 1 },
+    //     },
+    //   },
+    // ]),
+    this.orderModel.countDocuments({
+      learnerId: learnerObjectId,
+      status: 'COMPLETED',
+    })
+  ]);
+
+  return {
+    completedOrders,
+    slotStats,
+  };
+}
+
+async getWalletTransactions(learnerId: string, dto: AdminQueryDto) {
+  const page = Math.max(Number(dto.page) || 1, 1);
+  const limit = Math.max(Number(dto.limit) || 10, 1);
+  const skip = (page - 1) * limit;
+
+  const filter: any = {
+    learnerId: new Types.ObjectId(learnerId),
+  };
+
+  if (dto.type) filter.type = dto.type;
+
+  if (dto.startDate || dto.endDate) {
+    filter.createdAt = {};
+    if (dto.startDate) filter.createdAt.$gte = new Date(dto.startDate);
+    if (dto.endDate) filter.createdAt.$lte = new Date(dto.endDate);
+  }
+
+  const [data, total] = await Promise.all([
+    this.walletModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    this.walletModel.countDocuments(filter),
+  ]);
+
+  return {
+    data,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+async getReviews(learnerId: string, dto: AdminQueryDto) {
+  const filter: any = {
+    learnerId: new Types.ObjectId(learnerId),
+  };
+
+  if (dto.status) filter.status = dto.status;
+
+  return this.paginate(this.reviewModel, filter, dto);
+}
+
+async getFeedbacks(learnerId: string, dto: AdminQueryDto) {
+  const filter: any = {
+    // userId: new Types.ObjectId(learnerId),
+    userId: (learnerId),
+  };
+
+  if (dto.type) filter.type = dto.type;
+
+  return this.paginate(this.feedbackModel, filter, dto);
+}
+
+async paginate(model: any, filter: any, dto: AdminQueryDto) {
+  const page = Math.max(Number(dto.page) || 1, 1);
+  const limit = Math.max(Number(dto.limit) || 10, 1);
+  const skip = (page - 1) * limit;
+
+  if (dto.startDate || dto.endDate) {
+    filter.createdAt = {};
+    if (dto.startDate) filter.createdAt.$gte = new Date(dto.startDate);
+    if (dto.endDate) filter.createdAt.$lte = new Date(dto.endDate);
+  }
+
+  const [data, total] = await Promise.all([
+    model.find(filter).skip(skip).limit(limit).lean(),
+    model.countDocuments(filter),
+  ]);
+
+  return {
+    data,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+// GET /admin/learners/:id/profile	Profile
+// GET /admin/learners/:id/orders	Orders
+// GET /admin/learners/:id/stats	Stats
+// GET /admin/learners/:id/wallet	Wallet
+// GET /admin/learners/:id/reviews	Reviews
+// GET /admin/learners/:id/feedbacks	Feedbacks
   
 }

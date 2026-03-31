@@ -7,6 +7,7 @@ import { AdminQueryDto } from 'src/common/dto/admin-query.dto';
 import { buildAdminQuery } from 'src/common/utils/admin-query.util';
 import { NotFoundException } from '@nestjs/common';
 import { courseStatus } from 'src/common/enum';
+import { Lead } from 'src/leads/schema/leads.schema';
 
 
 @Injectable()
@@ -14,6 +15,8 @@ export class CoursesService {
   constructor(
     @InjectModel(Course.name)
     private courseModel: Model<Course>,
+    @InjectModel(Lead.name)
+    private leadModel: Model<Lead>,
   ) {}
 
 
@@ -151,4 +154,60 @@ async updateCourseStatus(
     data: {status},
   };
 }
+
+async getCourseDetails(courseId: string) {
+  const course = await this.courseModel
+    .findById(courseId)
+    .populate('providerId', 'instituteName email')
+    .lean();
+
+  if (!course) {
+    throw new NotFoundException('Course not found');
+  }
+
+  return course;
+}
+
+
+async getLeads(courseId: string, dto: AdminQueryDto) {
+  const page = Math.max(Number(dto.page) || 1, 1);
+  const limit = Math.max(Number(dto.limit) || 10, 1);
+  const skip = (page - 1) * limit;
+
+  const filter: any = {
+    courseId: new Types.ObjectId(courseId),
+  };
+
+  // ✅ Optional filters
+  if (dto.status) filter.status = dto.status;
+
+  // ✅ Date range
+  if (dto.startDate || dto.endDate) {
+    filter.createdAt = {};
+    if (dto.startDate) filter.createdAt.$gte = new Date(dto.startDate);
+    if (dto.endDate) filter.createdAt.$lte = new Date(dto.endDate);
+  }
+
+  const [data, total] = await Promise.all([
+    this.leadModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    this.leadModel.countDocuments(filter),
+  ]);
+
+  return {
+    data,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
 }

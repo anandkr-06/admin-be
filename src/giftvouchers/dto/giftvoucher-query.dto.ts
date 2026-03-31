@@ -2,9 +2,6 @@ import { AdminQueryDto } from 'src/common/dto/admin-query.dto';
 import { IsOptional, IsString, IsNumberString } from 'class-validator';
 
 export class GiftVoucherQueryDto extends AdminQueryDto {
-  @IsOptional()
-  @IsString()
-  status?: string;
 
   @IsOptional()
   @IsNumberString()

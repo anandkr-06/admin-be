@@ -32,5 +32,13 @@ export class AdminQueryDto {
   @IsOptional()
   @IsString()
   isActive?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  type?: string;
   
 }

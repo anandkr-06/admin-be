@@ -1,39 +1,70 @@
-// courseproviders/courseproviders.controller.ts
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Query,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { CourseProvidersService } from '../services/courseproviders.service';
 import { AdminQueryDto } from 'src/common/dto/admin-query.dto';
 import { Roles } from 'src/auth/roles.decorator';
 import { UpdateProviderStatusDto } from '../dto/update-status.dto';
+import { CoursesService } from 'src/course/services/course.service';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/roles.guard';
+import { Types } from 'mongoose';
 
 @Controller('admin/course-providers')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class CourseProvidersController {
-  constructor(private readonly service: CourseProvidersService) { }
+  constructor(
+    private readonly courseProvidersService: CourseProvidersService,
+    private readonly coursesService: CoursesService,
+  ) {}
+
+  private validateObjectId(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid id');
+    }
+  }
 
   @Get()
   getProviders(@Query() dto: AdminQueryDto) {
-    return this.service.getProviders(dto);
+    return this.courseProvidersService.getProviders(dto);
   }
 
-  // ✅ OPTION 1: Single endpoint (recommended)
+  // ✅ Single clean endpoint
   @Roles('ADMIN')
   @Patch(':id/status')
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateProviderStatusDto,
   ) {
-    return this.service.updateStatus(id, dto.isActive);
+    this.validateObjectId(id);
+    return this.courseProvidersService.updateStatus(id, dto.isActive);
   }
 
-  // ✅ OPTION 2: Separate endpoints (optional)
-  @Roles('ADMIN')
-  @Patch(':id/activate')
-  activate(@Param('id') id: string) {
-    return this.service.updateStatus(id, true);
+  // ✅ Profile
+  @Get(':id/profile')
+  getProfile(@Param('id') id: string) {
+    this.validateObjectId(id);
+    return this.courseProvidersService.getProfile(id);
   }
 
-  @Roles('ADMIN')
-  @Patch(':id/deactivate')
-  deactivate(@Param('id') id: string) {
-    return this.service.updateStatus(id, false);
+  // ✅ Courses
+  @Get(':id/courses')
+  getCourses(
+    @Param('id') id: string,
+    @Query() query: AdminQueryDto,
+  ) {
+    this.validateObjectId(id);
+
+    return this.coursesService.getCourses({
+      ...query,
+      providerId: id,
+    });
   }
 }

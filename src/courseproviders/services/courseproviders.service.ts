@@ -105,4 +105,18 @@ async updateStatus(providerId: string, isActive: boolean) {
   };
 }
 
+async getProfile(id: string) {
+  const provider = await this.providerModel
+    .findById(id)
+    .lean();
+
+  if (!provider) {
+    throw new NotFoundException('Course provider not found');
+  }
+
+  return provider;
+}
+
+
+
 }

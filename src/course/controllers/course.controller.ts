@@ -10,12 +10,12 @@ import { UpdateCourseStatusDto } from "../dto/update-course-status.dto";
 @Controller("courses")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CoursesController {
-  constructor(private readonly coursesService: CoursesService) { }
+  constructor(private readonly service: CoursesService) { }
 
 @Get()
 @UseGuards(JwtAuthGuard)
 getCourses(@Query() query: AdminQueryDto) {
-  return this.coursesService.getCourses(query);
+  return this.service.getCourses(query);
 }
 
 
@@ -25,7 +25,22 @@ updateCourseStatus(
   @Param('id') id: string,
   @Body() dto: UpdateCourseStatusDto,
 ) {
-  return this.coursesService.updateCourseStatus(id, dto.status);
+  return this.service.updateCourseStatus(id, dto.status);
 }
+
+ // ✅ 1. Course Details
+  @Get(':id')
+  getCourseDetails(@Param('id') id: string) {
+    return this.service.getCourseDetails(id);
+  }
+
+  // ✅ 2. Course Leads
+  @Get(':id/leads')
+  getLeads(
+    @Param('id') id: string,
+    @Query() query: AdminQueryDto,
+  ) {
+    return this.service.getLeads(id, query);
+  }
 
 }
