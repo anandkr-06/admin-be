@@ -5,6 +5,8 @@ import { Model, Types, SortOrder, PipelineStage } from 'mongoose';
 import { Course } from '../schema/course.schema';
 import { AdminQueryDto } from 'src/common/dto/admin-query.dto';
 import { buildAdminQuery } from 'src/common/utils/admin-query.util';
+import { NotFoundException } from '@nestjs/common';
+import { courseStatus } from 'src/common/enum';
 
 
 @Injectable()
@@ -14,57 +16,7 @@ export class CoursesService {
     private courseModel: Model<Course>,
   ) {}
 
-//   async getCourses(dto: AdminQueryDto) {
-//     const filter = buildAdminQuery(
-//       dto,
-//       ['courseName', 'category', 'courseType'],
-//     );
 
-//     // ✅ providerId fix
-//     if (dto.providerId) {
-//       filter.providerId = new Types.ObjectId(dto.providerId);
-//     }
-
-//     // ✅ sort fix
-//     const allowedSortFields = [
-//       'createdAt',
-//       'updatedAt',
-//       'price',
-//       'courseName',
-//       'status',
-//     ];
-
-//     const sortBy = allowedSortFields.includes(dto.sortBy)
-//       ? dto.sortBy
-//       : 'createdAt';
-
-//     const sort: Record<string, SortOrder> = {
-//       [sortBy]: dto.sortOrder === 'asc' ? 1 : -1,
-//     };
-
-//     const skip = (dto.page - 1) * dto.limit;
-
-//     const [data, total] = await Promise.all([
-//       this.courseModel
-//         .find(filter)
-//         .sort(sort)
-//         .skip(skip)
-//         .limit(dto.limit)
-//         .lean(),
-
-//       this.courseModel.countDocuments(filter),
-//     ]);
-
-//     return {
-//       data,
-//       meta: {
-//         page: dto.page,
-//         limit: dto.limit,
-//         total,
-//         totalPages: Math.ceil(total / dto.limit),
-//       },
-//     };
-//   }
 async getCourses(dto: AdminQueryDto) {
     const page = Math.max(Number(dto.page) || 1, 1);
     const limit = Math.max(Number(dto.limit) || 10, 1);
@@ -161,4 +113,42 @@ async getCourses(dto: AdminQueryDto) {
       },
     };
   }
+
+
+
+// ✅ ADD THIS METHOD
+async updateCourseStatus(
+  courseId: string,
+  status: courseStatus,
+) {
+  const course = await this.courseModel.findById(courseId);
+
+  if (!course) {
+    throw new NotFoundException('Course not found');
+  }
+
+  // ✅ Prevent unnecessary updates
+  if (course.status === status) {
+    return { message: 'No status change required' };
+  }
+
+  course.status = status;
+
+  // ✅ Optional: auto activate on approval
+  if (status === courseStatus.APPROVED) {
+    course.isActive = true;
+  }
+
+  // ✅ Optional: deactivate on reject
+  if (status === courseStatus.REJECTED) {
+    course.isActive = false;
+  }
+
+  await course.save();
+
+  return {
+    message: `Course ${status.toLowerCase()} successfully`,
+    data: {status},
+  };
+}
 }

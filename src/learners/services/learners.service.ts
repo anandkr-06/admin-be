@@ -80,11 +80,20 @@ async findAll(queryParams: any) {
   }
 
   async updateStatus(id: string, isActive: boolean) {
-    return this.learnerModel.findByIdAndUpdate(
+    const updated = this.learnerModel.findByIdAndUpdate(
       id,
       { isActive },
       { new: true }
     );
+
+    if (!updated) {
+    throw new NotFoundException('Learner id not found');
+  }
+
+  return {
+    message: `Learner status ${isActive ? 'activated' : 'deactivated'} successfully`,
+    data: { isActive },
+  };
   }
   
   

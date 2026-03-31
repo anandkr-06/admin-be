@@ -38,17 +38,14 @@ softDelete(@Param("id") id: string) {
   return this.learnersService.softDelete(id);
 }
 
-// @Patch(":id/status")
-// updateStatus(
-//   @Param("id") id: string,
-//   @Body("isActive") isActive: boolean,
-// ) {
-//   return this.learnersService.findByIdAndUpdate(
-//     id,
-//     { isActive },
-//     { new: true },
-//   );
-// }
+@Patch(":id/status")
+updateStatus(
+  @Param("id") id: string,
+  @Body("isActive") isActive: boolean,
+) {
+  return this.learnersService.updateStatus(id,isActive);
+
+}
 
 
 }

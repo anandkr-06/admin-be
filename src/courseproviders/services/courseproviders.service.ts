@@ -1,5 +1,5 @@
 // courseproviders/courseproviders.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage } from 'mongoose';
 import { CourseProvider } from '../schema/courseproviders.schema';
@@ -86,4 +86,23 @@ export class CourseProvidersService {
       },
     };
   }
+
+  // ✅ ADD THIS METHOD
+async updateStatus(providerId: string, isActive: boolean) {
+  const updated = await this.providerModel.findByIdAndUpdate(
+    providerId,
+    { $set: { isActive } },
+    { new: true },
+  );
+
+  if (!updated) {
+    throw new NotFoundException('Course provider not found');
+  }
+
+  return {
+    message: `Course provider ${isActive ? 'activated' : 'deactivated'} successfully`,
+    data: { isActive },
+  };
+}
+
 }

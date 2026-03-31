@@ -5,6 +5,7 @@ import { RolesGuard } from "src/auth/roles.guard";
 
 import { CoursesService } from "../services/course.service"
 import { AdminQueryDto } from "src/common/dto/admin-query.dto";
+import { UpdateCourseStatusDto } from "../dto/update-course-status.dto";
 
 @Controller("courses")
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -16,4 +17,15 @@ export class CoursesController {
 getCourses(@Query() query: AdminQueryDto) {
   return this.coursesService.getCourses(query);
 }
+
+
+
+@Patch(':id/status')
+updateCourseStatus(
+  @Param('id') id: string,
+  @Body() dto: UpdateCourseStatusDto,
+) {
+  return this.coursesService.updateCourseStatus(id, dto.status);
+}
+
 }
