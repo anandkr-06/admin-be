@@ -96,21 +96,25 @@ async findAll(queryParams: any) {
   }
 
   async updateStatus(id: string, isActive: boolean) {
-    const updated = this.learnerModel.findByIdAndUpdate(
-      id,
-      { $set: { isActive } },
-      { new: true }
-    );
+  if (!Types.ObjectId.isValid(id)) {
+    throw new NotFoundException('Invalid learner id');
+  }
 
-    if (!updated) {
-    throw new NotFoundException('Learner id not found');
+  const updated = await this.learnerModel.findByIdAndUpdate(
+    new Types.ObjectId(id),
+    { $set: { isActive } },
+    { new: true },
+  );
+
+  if (!updated) {
+    throw new NotFoundException('Learner not found');
   }
 
   return {
-    message: `Learner status ${isActive ? 'activated' : 'deactivated'} successfully`,
+    message: `Learner ${isActive ? 'activated' : 'deactivated'} successfully`,
     data: { isActive },
   };
-  }
+}
   
   
   async getProfile(learnerId: string) {

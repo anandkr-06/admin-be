@@ -105,23 +105,82 @@ export class InstructorsService {
   }
   
   // 1️⃣ Profile
+  // async getProfile(id: string) {
+  //   const instructor = await this.instructorModel.findOne({
+  //     _id: new Types.ObjectId(id),
+  //     //isDeleted: false,
+  //   });
+
+  //   if (!instructor) throw new NotFoundException("Instructor not found");
+
+  //   return {
+  //     id: instructor._id,
+  //     name: instructor.firstName,
+  //     email: instructor.email,
+  //     mobile: instructor.mobile,
+  //     isActive: instructor.isActive,
+  //     createdAt: instructor.createdAt,
+  //   };
+  // }
   async getProfile(id: string) {
-    const instructor = await this.instructorModel.findOne({
-      _id: new Types.ObjectId(id),
-      //isDeleted: false,
-    });
-
-    if (!instructor) throw new NotFoundException("Instructor not found");
-
-    return {
-      id: instructor._id,
-      name: instructor.firstName,
-      email: instructor.email,
-      mobile: instructor.mobile,
-      isActive: instructor.isActive,
-      createdAt: instructor.createdAt,
-    };
+  if (!Types.ObjectId.isValid(id)) {
+    throw new NotFoundException('Invalid instructor id');
   }
+
+  const result = await this.instructorModel.aggregate([
+    {
+      $match: {
+        _id: new Types.ObjectId(id),
+      },
+    },
+
+    // 🔗 Join instructorprofiles
+    {
+      $lookup: {
+        from: 'instructorprofiles', // collection name
+        localField: '_id',
+        foreignField: 'userId',
+        as: 'profile',
+      },
+    },
+
+    {
+      $unwind: {
+        path: '$profile',
+        preserveNullAndEmptyArrays: true, // important
+      },
+    },
+
+    // ✅ Shape response
+    {
+      $project: {
+        id: '$_id',
+        name: { $concat: ['$firstName', ' ', '$lastName'] },
+        email: 1,
+        mobile: 1,
+        isActive: 1,
+        createdAt: 1,
+
+        // 👇 Profile fields (adjust as per schema)
+        bio: '$profile.bio',
+        vehicles: '$profile.vehicles',
+        availability: '$profile.availability',
+        suburbs: '$profile.suburbs',
+        documents: '$profile.documents',
+        rating: '$profile.rating',
+         isVerified: '$profile.isVerified',
+         serviceAreas: '$profile.serviceAreas',
+         testLocations: '$profile.testLocations',
+      },
+    },
+  ]);
+
+  if (!result.length) {
+    throw new NotFoundException('Instructor not found');
+  }
+
+  return result[0];
+}
 
   // 2️⃣ Orders
   async getOrders({
