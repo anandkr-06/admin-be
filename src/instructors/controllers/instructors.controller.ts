@@ -7,6 +7,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Types } from "mongoose";
 import { UpdateVehiclesDto } from "../dto/update-vehicles.dto";
+import { AdminQueryDto } from "src/common/dto/admin-query.dto";
 
 @Controller("instructors")
 export class InstructorsController {
@@ -146,4 +147,17 @@ updateVehicles(
 
   return this.instructorsService.updateVehicles(id, dto);
 }
+
+@Get(':id/wallet')
+getInstructorWallet(
+  @Param('id') id: string,
+  @Query() query: AdminQueryDto,
+) {
+  return this.instructorsService.getWalletTransactions(
+    'userId',
+    id,
+    query,
+  );
+}
+
 }

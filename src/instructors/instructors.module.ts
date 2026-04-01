@@ -12,6 +12,7 @@ import { PrivateOrder, PrivateOrderSchema } from "./schemas/private-order.schema
 import { Order, OrderSchema } from "./schemas/orders.schema";
 import { InstructorProfile, InstructorProfileSchema } from "./schemas/instructro-profiles.schema";
 import { AdminInstructorsService } from "./services/admin-instructors.service";
+import { WalletTransaction, WalletTransactionSchema } from "./schemas/wallet-transactions.schema";
   
   
   @Module({
@@ -21,7 +22,9 @@ import { AdminInstructorsService } from "./services/admin-instructors.service";
         {name: Order.name, schema: OrderSchema},
         {name: PrivateLearner.name, schema: PrivateLearnerSchema}, 
         {name: PrivateOrder.name, schema:PrivateOrderSchema},
-        {name:InstructorProfile.name, schema:InstructorProfileSchema}
+        {name:InstructorProfile.name, schema:InstructorProfileSchema},
+        { name: WalletTransaction.name, schema: WalletTransactionSchema
+               },
 
       ]),
       JwtModule.register({

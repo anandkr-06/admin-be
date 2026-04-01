@@ -10,6 +10,8 @@ import { Order, OrderDocument } from "../schemas/orders.schema";
 import { PrivateOrder, PrivateOrderDocument } from "../schemas/private-order.schema";
 import { InstructorProfile, InstructorProfileDocument } from "../schemas/instructro-profiles.schema";
 import { json } from "stream/consumers";
+import { AdminQueryDto } from "src/common/dto/admin-query.dto";
+import { WalletTransaction, WalletTransactionDocument } from "../schemas/wallet-transactions.schema";
 
 
 @Injectable()
@@ -27,7 +29,9 @@ export class InstructorsService {
     private privateOrderModel: Model<PrivateOrderDocument>,
 
     @InjectModel(InstructorProfile.name)
-    private instructorProfileModel: Model<InstructorProfileDocument>
+    private instructorProfileModel: Model<InstructorProfileDocument>,
+    @InjectModel(WalletTransaction.name)
+        private walletModel: Model<WalletTransactionDocument>,
   ) {}
 
   async setActive(id: string, isActive: boolean) {
@@ -402,4 +406,50 @@ export class InstructorsService {
       data: updated,
     };
   }
+
+
+  async getWalletTransactions(
+  field: 'learnerId' | 'userId',
+  userId: string,
+  dto: AdminQueryDto,
+) {
+  const page = Math.max(Number(dto.page) || 1, 1);
+  const limit = Math.max(Number(dto.limit) || 10, 1);
+  const skip = (page - 1) * limit;
+
+  const filter: any = {
+    [field]: new Types.ObjectId(userId),
+  };
+
+  if (dto.type) filter.type = dto.type;
+
+  // ✅ Date range
+  if (dto.startDate || dto.endDate) {
+    filter.createdAt = {};
+    if (dto.startDate) filter.createdAt.$gte = new Date(dto.startDate);
+    if (dto.endDate) filter.createdAt.$lte = new Date(dto.endDate);
+  }
+
+  const [data, total] = await Promise.all([
+    this.walletModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    this.walletModel.countDocuments(filter),
+  ]);
+
+  return {
+    data,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
 }
