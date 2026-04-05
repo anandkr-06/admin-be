@@ -217,11 +217,26 @@ export class InstructorsService {
 
     if (status) query.status = status;
 
+    // if (search) {
+    //   query.$or = [
+    //     { _id: new RegExp(search, "i") },
+    //     { "learner.name": new RegExp(search, "i") },
+    //   ];
+    // }
     if (search) {
-      query.$or = [
-        { orderId: new RegExp(search, "i") },
-        { "learner.name": new RegExp(search, "i") },
-      ];
+      const orConditions: any[] = [];
+    
+      // ✅ If search is a valid ObjectId → match directly
+      if (Types.ObjectId.isValid(search)) {
+        orConditions.push({ _id: new Types.ObjectId(search) });
+      }
+    
+      // ✅ Always allow name search
+      orConditions.push({
+        "learner.name": { $regex: search, $options: "i" },
+      });
+    
+      query.$or = orConditions;
     }
 
     const [data, total] = await Promise.all([
