@@ -24,7 +24,7 @@ export enum FeedbackType {
     WEEKEND = 'Weekend',
     WEEKDAY = 'Weekday',
     WEEKEND_WEEKDAY = 'Weekend & Weekday',
-    FLEXIBLE = 'Flexible',
+    FLEXIBLE = 'Flexible Date',
 
   }
 

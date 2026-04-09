@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { OrderSlot, OrderSlotSchema } from './order-slot.schema.js';
+import { OrderSlot, OrderSlotSchema } from './order-slot.schema';
 
 
 @Schema({ collection: 'orders', timestamps: true })
@@ -35,6 +35,10 @@ export class Order {
   pricePerHour!: number;
 
   @Prop({ default: 0 })
+  testPrice!: number;
+  
+
+  @Prop({ default: 0 })
   discount!: number;
 
   @Prop({ default: 0 })
@@ -51,6 +55,9 @@ export class Order {
 
   @Prop({ default: 0 })
   payableAmount!: number;
+
+  @Prop({ default: 0 })
+  purchaseAmount!: number;   // ✅ ADD THIS
 
   @Prop({ enum: ['NOT_REQUIRED', 'PENDING', 'PAID'], required: true })
   paymentStatus!: 'NOT_REQUIRED' | 'PENDING' | 'PAID';
@@ -77,6 +84,9 @@ export class Order {
   @Prop({ default: 0 })
   usedHours!: number;
 
+  @Prop({ required: true})
+  orderTypeFullName!: string;
+
   @Prop({ default: 0 })
   remainingHours!: number;
 
@@ -90,7 +100,7 @@ export class Order {
   scheduleStatus!: string;
 
   @Prop({
-    enum: ['PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED'],
+    enum: ['PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED','CONFIRMING'],
     default: 'PENDING_PAYMENT',
   })
   status!: string;
