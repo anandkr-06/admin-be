@@ -333,7 +333,16 @@ async approveRefund(requestId: string) {
 }
 
 async rejectRefund(requestId: string) {
+  if (!Types.ObjectId.isValid(requestId)) {
+    throw new BadRequestException('Invalid requestId');
+  }
+
   const txn = await this.walletModel.findById(requestId);
+
+  if (!txn) {
+    throw new NotFoundException('Refund request not found');
+  }
+  //const txn = await this.walletModel.findById(requestId);
 
   if (!txn || txn.status !== 'PENDING') {
     throw new BadRequestException('Invalid request');
