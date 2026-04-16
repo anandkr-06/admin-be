@@ -345,59 +345,36 @@ async approveRefund(requestId: string) {
 }
 
 async rejectRefund(requestId: string) {
-  if (!Types.ObjectId.isValid(requestId)) {
-    throw new BadRequestException('Invalid requestId');
-  }
-
   const txn = await this.walletModel.findById(requestId);
-
-  if (!txn) {
-    throw new NotFoundException('Refund request not found');
-  }
-  //const txn = await this.walletModel.findById(requestId);
 
   if (!txn || txn.status !== 'PENDING') {
     throw new BadRequestException('Invalid request');
   }
 
-  const learnerObjectId = txn.learnerId;
+  // ✅ Add money back
+  await this.learnerModel.updateOne(
+    { _id: txn.learnerId },
+    { $inc: { walletBalance: txn.amount } },
+  );
 
-  // ✅ Get latest balance
-  const lastTxn = await this.walletModel
-    .findOne({ learnerId: learnerObjectId })
-    .sort({ createdAt: -1 });
-
-  const currentBalance = lastTxn?.balanceAfter || 0;
-
-  const newBalance = currentBalance + txn.amount;
-
-  // ✅ Reverse entry (credit back)
+  // ✅ Create CREDIT txn
   await this.walletModel.create({
-    learnerId: learnerObjectId,
-    userId: learnerObjectId,
+    learnerId: txn.learnerId,
+    userId: txn.learnerId,
     role: 'learner',
     type: 'CREDIT',
     amount: txn.amount,
-    balanceAfter: newBalance,
-    description: 'Refund Rejected - Amount Returned',
+    description: 'Refund request rejected - amount returned',
     source: 'REFUND_REVERSAL',
     status: 'COMPLETED',
   });
 
-  // ✅ Update learner wallet
-  await this.learnerModel.updateOne(
-    { _id: learnerObjectId },
-    { $inc: { walletBalance: txn.amount } },
-  );
-
-  // ✅ Mark original txn
+  // ✅ Update request txn
   txn.status = WalletTxnStatus.REJECTED;
-  txn.description = 'Refund request rejected by admin';
   await txn.save();
 
   return {
-    message: 'Refund request rejected and amount returned',
-    balanceAfter: newBalance,
+    message: 'Refund rejected and amount returned',
   };
 }
   
