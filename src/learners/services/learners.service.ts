@@ -303,33 +303,44 @@ async approveRefund(requestId: string) {
     throw new BadRequestException('Invalid request');
   }
 
-  // 1️⃣ Call Stripe
-  const refund = await this.stripe.refunds.create({
-    payment_intent: txn.stripePaymentIntentId,
-    amount: Math.round(txn.amount * 100),
-  });
+  try {
+    // 1️⃣ Stripe call
+    const refund = await this.stripe.refunds.create({
+      payment_intent: txn.stripePaymentIntentId,
+      amount: Math.round(txn.amount * 100),
+    });
 
-  // 2️⃣ Update original transaction
-  await this.walletModel.updateOne(
-    {
-      learnerId: txn.learnerId,
-      stripePaymentIntentId: txn.stripePaymentIntentId,
-      type: 'CREDIT',
-    },
-    {
-      $inc: { refundedAmount: txn.amount }, // 🔥 KEY LINE
-    },
-  );
+    // 2️⃣ Update original txn
+    await this.walletModel.updateOne(
+      {
+        learnerId: txn.learnerId,
+        stripePaymentIntentId: txn.stripePaymentIntentId,
+        type: 'CREDIT',
+      },
+      {
+        $inc: { refundedAmount: txn.amount },
+      },
+    );
 
-  // 3️⃣ Mark refund txn
-  txn.status = WalletTxnStatus.COMPLETED;
-  txn.referenceEntityId = new Types.ObjectId(refund.id);
-  await txn.save();
+    // 3️⃣ Mark refund txn
+    txn.status = WalletTxnStatus.COMPLETED;
+    // txn.referenceEntityId = refund.id; // ✅ FIXED
+    (txn as any).stripeRefundId = refund.id; // optional
+    await txn.save();
 
-  return {
-    message: 'Refund approved',
-    refundId: refund.id,
-  };
+    return {
+      message: 'Refund approved',
+      refundId: refund.id,
+    };
+
+  } catch (error) {
+    console.error('Refund Error:', error);
+
+    txn.status = WalletTxnStatus.FAILED;
+    await txn.save();
+
+    throw new BadRequestException('Refund failed');
+  }
 }
 
 async rejectRefund(requestId: string) {

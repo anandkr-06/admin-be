@@ -27,6 +27,7 @@ export enum WalletTxnStatus {
   REVERSED = 'REVERSED',
   PENDING = 'PENDING',
   REJECTED = 'REJECTED',
+  FAILED = 'FAILED',
 }
 
 @Schema({ collection: 'wallet_transactions', timestamps: true })
