@@ -324,6 +324,7 @@ async approveRefund(requestId: string) {
 
     // 3️⃣ Mark refund txn
     txn.status = WalletTxnStatus.COMPLETED;
+    txn.description = 'Refund approved and processed';
     // txn.referenceEntityId = refund.id; // ✅ FIXED
     (txn as any).stripeRefundId = refund.id; // optional
     await txn.save();
@@ -391,6 +392,7 @@ async rejectRefund(requestId: string) {
 
   // ✅ Mark original txn
   txn.status = WalletTxnStatus.REJECTED;
+  txn.description = 'Refund request rejected by admin';
   await txn.save();
 
   return {
