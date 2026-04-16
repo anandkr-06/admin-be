@@ -344,40 +344,65 @@ async approveRefund(requestId: string) {
   }
 }
 
-async rejectRefund(requestId: string) {
-  const txn = await this.walletModel.findById(requestId);
 
-  if (!txn || txn.status !== 'PENDING') {
-    throw new BadRequestException('Invalid request');
+
+async rejectRefund(requestId: string) {
+  if (!Types.ObjectId.isValid(requestId)) {
+    throw new BadRequestException('Invalid requestId');
   }
 
-  // ✅ Add money back
+  const txn = await this.walletModel.findById(requestId);
+
+  if (!txn) {
+    throw new NotFoundException('Refund request not found');
+  }
+
+  if (txn.status !== 'PENDING') {
+    throw new BadRequestException('Refund already processed');
+  }
+
+  // 1️⃣ Get learner
+  const learner = await this.learnerModel.findById(txn.learnerId);
+
+  if (!learner) {
+    throw new NotFoundException('Learner not found');
+  }
+
+  // 2️⃣ Calculate new balance (amount was already deducted during request)
+  const newBalance = learner.walletBalance + txn.amount;
+
+  // 3️⃣ Update learner wallet (credit back)
   await this.learnerModel.updateOne(
     { _id: txn.learnerId },
     { $inc: { walletBalance: txn.amount } },
   );
 
-  // ✅ Create CREDIT txn
+  // 4️⃣ Create reversal transaction (ledger entry)
   await this.walletModel.create({
     learnerId: txn.learnerId,
     userId: txn.learnerId,
     role: 'learner',
     type: 'CREDIT',
     amount: txn.amount,
+    balanceAfter: newBalance, // ✅ REQUIRED
     description: 'Refund request rejected - amount returned',
     source: 'REFUND_REVERSAL',
     status: 'COMPLETED',
+    referenceEntityId: txn._id, // ✅ link to original request
   });
 
-  // ✅ Update request txn
+  // 5️⃣ Update original refund request
   txn.status = WalletTxnStatus.REJECTED;
+  txn.description = 'Refund request rejected by admin';
   await txn.save();
 
   return {
-    message: 'Refund rejected and amount returned',
+    success: true,
+    message: 'Refund rejected and amount returned to wallet',
+    balanceAfter: newBalance,
   };
 }
-  
+
 async getRefundRequests(dto: RefundRequestQueryDto) {
   const page = Math.max(Number(dto.page) || 1, 1);
   const limit = Math.max(Number(dto.limit) || 10, 1);

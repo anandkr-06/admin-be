@@ -23,6 +23,11 @@ export class Learner {
   @Prop({ default: true })
   isActive: boolean;
 
+  @Prop({ default: 0 })
+  walletBalance: number;
+
+  
+
   @Prop({ default: false })
   isDeleted: boolean; // ✅ SOFT DELETE FLAG
 }
