@@ -1,54 +1,55 @@
 // learners/learners.controller.ts
-import { Body, Controller, Delete, Get, Param, Patch, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 // import { LearnersService } from ".services/learners.service";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { RolesGuard } from "src/auth/roles.guard";
 import { Roles } from "src/auth/roles.decorator";
 import { LearnersService } from "../services/learners.service";
 import { AdminQueryDto } from 'src/common/dto/admin-query.dto';
+import { RefundRequestQueryDto } from "../dto/refund.dto";
 
 @Controller("learners")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class LearnersController {
   constructor(private readonly service: LearnersService) { }
 
-// learners/learners.controller.ts
-// learners.controller.ts
-@Get()
-@UseGuards(JwtAuthGuard)
-getAll(
-  @Query("page") page = "1",
-  @Query("limit") limit = "10",
-  @Query("search") search?: string,
-  @Query("status") status?: "active" | "inactive",
-) {
-  return this.service.findAll({
-    page: Number(page),
-    limit: Number(limit),
-    search,
-    status,
-  });
-}
+  // learners/learners.controller.ts
+  // learners.controller.ts
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  getAll(
+    @Query("page") page = "1",
+    @Query("limit") limit = "10",
+    @Query("search") search?: string,
+    @Query("status") status?: "active" | "inactive",
+  ) {
+    return this.service.findAll({
+      page: Number(page),
+      limit: Number(limit),
+      search,
+      status,
+    });
+  }
 
 
 
-@UseGuards(JwtAuthGuard)
-@Roles("ADMIN")
-@Delete(":id")
-softDelete(@Param("id") id: string) {
-  return this.service.softDelete(id);
-}
+  @UseGuards(JwtAuthGuard)
+  @Roles("ADMIN")
+  @Delete(":id")
+  softDelete(@Param("id") id: string) {
+    return this.service.softDelete(id);
+  }
 
-@Patch(":id/status")
-updateStatus(
-  @Param("id") id: string,
-  @Body("isActive") isActive: boolean,
-) {
-  return this.service.updateStatus(id,isActive);
+  @Patch(":id/status")
+  updateStatus(
+    @Param("id") id: string,
+    @Body("isActive") isActive: boolean,
+  ) {
+    return this.service.updateStatus(id, isActive);
 
-}
+  }
 
-// ✅ 1. Profile
+  // ✅ 1. Profile
   @Get(':id/profile')
   getProfile(@Param('id') id: string) {
     return this.service.getProfile(id);
@@ -94,6 +95,26 @@ updateStatus(
     @Query() query: AdminQueryDto,
   ) {
     return this.service.getFeedbacks(id, query);
+  }
+
+  // ✅ 7. Refund Approve
+  @Post('/refund/:id/approve')
+  getRefundApprove(
+    @Param('id') id: string,
+  ) {
+    return this.service.approveRefund(id);
+  }
+  // ✅ 8. Refund Reject
+  @Post('/refund/:id/reject')
+  getRefundReject(
+    @Param('id') id: string,
+  ) {
+    return this.service.rejectRefund(id);
+  }
+
+  @Get('refund-requests')
+  async getRefundRequests(@Query() dto: RefundRequestQueryDto) {
+    return this.service.getRefundRequests(dto);
   }
 
 }

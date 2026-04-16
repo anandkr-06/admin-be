@@ -18,12 +18,15 @@ export enum WalletTxnSource {
   SLOT_CANCELLED = 'SLOT_CANCELLED',
   FAST_CASH = 'FAST_CASH',
   LESSON_COMPLETED = 'LESSON_COMPLETED',
+  NOSHOW = 'NOSHOW',
 }
 
 
 export enum WalletTxnStatus {
   COMPLETED = 'COMPLETED',
   REVERSED = 'REVERSED',
+  PENDING = 'PENDING',
+  REJECTED = 'REJECTED',
 }
 
 @Schema({ collection: 'wallet_transactions', timestamps: true })
@@ -59,6 +62,14 @@ export class WalletTransaction {
 
   @Prop({ required: false,default:'' })
   description?: string;
+
+  @Prop({required: false,default:false})
+  isRefund?: boolean;
+
+  @Prop({required: false,default:0})
+  refundedAmount?: number;
+  @Prop({required: false,default:false})
+  isRefundRequested?: boolean;
 
   @Prop({ enum: WalletTxnStatus, default: WalletTxnStatus.COMPLETED })
   status!: WalletTxnStatus;

@@ -1,18 +1,22 @@
 // learners/learners.service.ts
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { Learner, LearnerDocument } from "../schema/learner.schema";
 import { AdminQueryDto } from "src/common/dto/admin-query.dto";
 import { Order, OrderDocument } from "src/instructors/schemas/orders.schema";
-import { WalletTransaction, WalletTransactionDocument } from "src/instructors/schemas/wallet-transactions.schema";
+import { WalletTransaction, WalletTransactionDocument, WalletTxnStatus } from "src/instructors/schemas/wallet-transactions.schema";
 
 import { Feedback } from "src/feedbacks/schema/feedbacks.schema";
 import { InstructorReview } from "src/instructors/schemas/instructor-reviews.schema";
 
+import { RefundRequestQueryDto } from "../dto/refund.dto";
+import Stripe from 'stripe';
+
 
 @Injectable()
 export class LearnersService {
+  private stripe: Stripe;
   constructor(
     @InjectModel(Learner.name)
     private learnerModel: Model<LearnerDocument>,
@@ -26,7 +30,11 @@ export class LearnersService {
     private feedbackModel: Model<Feedback>,
     // @InjectModel(Slot.name)
     // private slotModel: Model<SlotDocument>,
-  ) {}
+  ) {
+    this.stripe = new Stripe(process.env['STRIPE_SECRET_KEY']!, {
+      apiVersion: '2025-12-15.clover',
+    });
+  }
 
   
 // learners.service.ts
@@ -283,12 +291,209 @@ async paginate(model: any, filter: any, dto: AdminQueryDto) {
     },
   };
 }
+/**
+ * Admin Approval process
+ * @param requestId 
+ * @returns 
+ */
+async approveRefund(requestId: string) {
+  const txn = await this.walletModel.findById(requestId);
 
-// GET /admin/learners/:id/profile	Profile
-// GET /admin/learners/:id/orders	Orders
-// GET /admin/learners/:id/stats	Stats
-// GET /admin/learners/:id/wallet	Wallet
-// GET /admin/learners/:id/reviews	Reviews
-// GET /admin/learners/:id/feedbacks	Feedbacks
+  if (!txn || txn.status !== 'PENDING') {
+    throw new BadRequestException('Invalid request');
+  }
+
+  // 1️⃣ Call Stripe
+  const refund = await this.stripe.refunds.create({
+    payment_intent: txn.stripePaymentIntentId,
+    amount: Math.round(txn.amount * 100),
+  });
+
+  // 2️⃣ Update original transaction
+  await this.walletModel.updateOne(
+    {
+      learnerId: txn.learnerId,
+      stripePaymentIntentId: txn.stripePaymentIntentId,
+      type: 'CREDIT',
+    },
+    {
+      $inc: { refundedAmount: txn.amount }, // 🔥 KEY LINE
+    },
+  );
+
+  // 3️⃣ Mark refund txn
+  txn.status = WalletTxnStatus.COMPLETED;
+  txn.referenceEntityId = new Types.ObjectId(refund.id);
+  await txn.save();
+
+  return {
+    message: 'Refund approved',
+    refundId: refund.id,
+  };
+}
+
+async rejectRefund(requestId: string) {
+  const txn = await this.walletModel.findById(requestId);
+
+  if (!txn || txn.status !== 'PENDING') {
+    throw new BadRequestException('Invalid request');
+  }
+
+  const learnerObjectId = txn.learnerId;
+
+  // ✅ Get latest balance
+  const lastTxn = await this.walletModel
+    .findOne({ learnerId: learnerObjectId })
+    .sort({ createdAt: -1 });
+
+  const currentBalance = lastTxn?.balanceAfter || 0;
+
+  const newBalance = currentBalance + txn.amount;
+
+  // ✅ Reverse entry (credit back)
+  await this.walletModel.create({
+    learnerId: learnerObjectId,
+    userId: learnerObjectId,
+    role: 'learner',
+    type: 'CREDIT',
+    amount: txn.amount,
+    balanceAfter: newBalance,
+    description: 'Refund Rejected - Amount Returned',
+    source: 'REFUND_REVERSAL',
+    status: 'COMPLETED',
+  });
+
+  // ✅ Update learner wallet
+  await this.learnerModel.updateOne(
+    { _id: learnerObjectId },
+    { $inc: { walletBalance: txn.amount } },
+  );
+
+  // ✅ Mark original txn
+  txn.status = WalletTxnStatus.REJECTED;
+  await txn.save();
+
+  return {
+    message: 'Refund request rejected and amount returned',
+    balanceAfter: newBalance,
+  };
+}
   
+async getRefundRequests(dto: RefundRequestQueryDto) {
+  const page = Math.max(Number(dto.page) || 1, 1);
+  const limit = Math.max(Number(dto.limit) || 10, 1);
+  const skip = (page - 1) * limit;
+
+  const match: any = {
+    source: 'STRIPE_REFUND',
+  };
+
+  // ✅ Status filter
+  if (dto.status) {
+    match.status = dto.status;
+  }
+
+  // ✅ Date filter
+  if (dto.fromDate || dto.toDate) {
+    match.createdAt = {};
+    if (dto.fromDate) {
+      match.createdAt.$gte = new Date(dto.fromDate);
+    }
+    if (dto.toDate) {
+      match.createdAt.$lte = new Date(dto.toDate);
+    }
+  }
+
+  const pipeline: any[] = [
+    { $match: match },
+
+    // ✅ Join learner info
+    {
+      $lookup: {
+        from: 'learners',
+        localField: 'learnerId',
+        foreignField: '_id',
+        as: 'learner',
+      },
+    },
+    { $unwind: { path: '$learner', preserveNullAndEmptyArrays: true } },
+
+    // ✅ Search filter
+    ...(dto.search
+      ? [
+          {
+            $match: {
+              $or: [
+                {
+                  'learner.firstName': {
+                    $regex: dto.search,
+                    $options: 'i',
+                  },
+                },
+                {
+                  'learner.email': {
+                    $regex: dto.search,
+                    $options: 'i',
+                  },
+                },
+                {
+                  stripePaymentIntentId: {
+                    $regex: dto.search,
+                    $options: 'i',
+                  },
+                },
+              ],
+            },
+          },
+        ]
+      : []),
+
+    // ✅ Sort latest first
+    { $sort: { createdAt: -1 } },
+
+    // ✅ Pagination + count
+    {
+      $facet: {
+        data: [
+          { $skip: skip },
+          { $limit: limit },
+
+          {
+            $project: {
+              _id: 1,
+              amount: 1,
+              status: 1,
+              stripePaymentIntentId: 1,
+              createdAt: 1,
+              referenceEntityId: 1,
+              learner: {
+                _id: '$learner._id',
+                firstName: '$learner.firstName',
+                lastName: '$learner.lastName',
+                email: '$learner.email',
+                mobileNumber: '$learner.mobileNumber',
+              },
+            },
+          },
+        ],
+        total: [{ $count: 'count' }],
+      },
+    },
+  ];
+
+  const result = await this.walletModel.aggregate(pipeline);
+
+  const data = result[0]?.data || [];
+  const total = result[0]?.total[0]?.count || 0;
+
+  return {
+    success: true,
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit),
+    data,
+  };
+}
+
 }
