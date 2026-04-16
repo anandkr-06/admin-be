@@ -17,12 +17,14 @@ export class OrderSlot {
   @Prop({ enum: ['LESSON', 'TEST'], required: true })
   type!: 'LESSON' | 'TEST';
 
+  /* ---------------- LESSON ---------------- */
   @Prop({
     type: {
       pickupAddress: String,
       suburb: String,
       state: String,
     },
+    _id: false,
   })
   pickupLocation?: {
     pickupAddress: string;
@@ -30,11 +32,63 @@ export class OrderSlot {
     state: string;
   };
 
+  /* ---------------- TEST ---------------- */
+  @Prop()
+  testLocation?: string;
+
   @Prop({
-    enum: ['BOOKED', 'NOSHOW', 'CANCELLED', 'COMPLETED', 'RESCHEDULED','PENDING_RESCHEDULE'],
+    type: {
+      pickupPoint: String,
+      suburb: String,
+      state: String,
+    },
+    _id: false,
+  })
+  pickupPoint?: {
+    pickupPoint: string;
+    suburb: string;
+    state: string;
+  };
+
+  @Prop({
+    type: {
+      dropPoint: String,
+      suburb: String,
+      state: String,
+    },
+    _id: false,
+  })
+  dropPoint?: {
+    dropPoint: string;
+    suburb: string;
+    state: string;
+  };
+
+  /* ---------------- COMMON ---------------- */
+  @Prop({
+    enum: [
+      'BOOKED',
+      'NOSHOW',
+      'CANCELLED',
+      'COMPLETED',
+      'RESCHEDULED',
+      'PENDING_RESCHEDULE',
+      'NOSHOW_REQUESTED',
+    ],
     default: 'BOOKED',
   })
   status!: string;
+  @Prop({
+    type: {
+      learner: { type: Boolean, default: false },
+      instructor: { type: Boolean, default: false },
+    },
+    default: { learner: false, instructor: false },
+  })
+  notification!: {
+    learner: boolean;
+    instructor: boolean;
+  };
 
   @Prop({
     type: {
@@ -49,10 +103,10 @@ export class OrderSlot {
 
   @Prop({
     type: {
-        requestedBy: {
-            type: String,
-            enum: ['LEARNER', 'INSTRUCTOR'],
-          },
+      requestedBy: {
+        type: String,
+        enum: ['LEARNER', 'INSTRUCTOR'],
+      },
       status: {
         type: String,
         enum: ['PENDING', 'ACCEPTED', 'REJECTED'],

@@ -13,6 +13,7 @@ import { Order, OrderSchema } from "./schemas/orders.schema";
 import { InstructorProfile, InstructorProfileSchema } from "./schemas/instructro-profiles.schema";
 import { AdminInstructorsService } from "./services/admin-instructors.service";
 import { WalletTransaction, WalletTransactionSchema } from "./schemas/wallet-transactions.schema";
+import { NoShowRequest, NoShowRequestSchema } from "./schemas/no-show-request.schema";
   
   
   @Module({
@@ -25,6 +26,7 @@ import { WalletTransaction, WalletTransactionSchema } from "./schemas/wallet-tra
         {name:InstructorProfile.name, schema:InstructorProfileSchema},
         { name: WalletTransaction.name, schema: WalletTransactionSchema
                },
+               {name:NoShowRequest.name,schema:NoShowRequestSchema},
 
       ]),
       JwtModule.register({

@@ -160,4 +160,30 @@ getInstructorWallet(
   );
 }
 
+@Get('admin/no-show-requests')
+async getAllNoShowRequests(
+  @Query('page') page = '1',
+  @Query('limit') limit = '10',
+  @Query('status') status?: string,
+  @Query('requestedBy') requestedBy?: string,
+  @Query('search') search?: string,
+  @Query('sortBy') sortBy: string = 'createdAt',
+  @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'desc',
+  @Query('startDate') startDate?: string,
+  @Query('endDate') endDate?: string,
+) {
+  return this.instructorsService.getAllNoShowRequests({
+    page: Number(page),
+    limit: Number(limit),
+    status,
+    requestedBy,
+    search,
+    sortBy,
+    sortOrder,
+    startDate,
+    endDate,
+  });
+}
+
+
 }

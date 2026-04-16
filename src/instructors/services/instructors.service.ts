@@ -12,6 +12,7 @@ import { InstructorProfile, InstructorProfileDocument } from "../schemas/instruc
 import { json } from "stream/consumers";
 import { AdminQueryDto } from "src/common/dto/admin-query.dto";
 import { WalletTransaction, WalletTransactionDocument } from "../schemas/wallet-transactions.schema";
+import { NoShowRequest, NoShowRequestDocument } from "../schemas/no-show-request.schema";
 
 
 @Injectable()
@@ -32,6 +33,9 @@ export class InstructorsService {
     private instructorProfileModel: Model<InstructorProfileDocument>,
     @InjectModel(WalletTransaction.name)
         private walletModel: Model<WalletTransactionDocument>,
+
+    @InjectModel(NoShowRequest.name)
+      private noShowRequestModel: Model<NoShowRequestDocument>,
   ) {}
 
   async setActive(id: string, isActive: boolean) {
@@ -466,5 +470,234 @@ export class InstructorsService {
     },
   };
 }
+
+async getAllNoShowRequests({
+  page,
+  limit,
+  status,
+  requestedBy,
+  search,
+  sortBy,
+  sortOrder,
+  startDate,
+  endDate,
+}: {
+  page: number;
+  limit: number;
+  status?: string;
+  requestedBy?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  startDate?: string;
+  endDate?: string;
+}) {
+  const query: any = {};
+
+  /* ===============================
+     🎯 FILTERS
+  =============================== */
+  if (status) query.status = status;
+  if (requestedBy) query.requestedBy = requestedBy;
+
+  /* ===============================
+     📅 DATE RANGE
+  =============================== */
+  if (startDate || endDate) {
+    query.createdAt = {};
+    if (startDate) query.createdAt.$gte = new Date(startDate);
+    if (endDate) query.createdAt.$lte = new Date(endDate);
+  }
+
+  /* ===============================
+     🔍 SEARCH
+  =============================== */
+  let matchStage: any = {};
+
+  if (search) {
+    const regex = new RegExp(search, 'i');
+
+    matchStage = {
+      $or: [
+        { 'learner.firstName': regex },
+        { 'learner.lastName': regex },
+        { 'learner.email': regex },
+        { 'instructor.firstName': regex },
+        { 'instructor.lastName': regex },
+        { 'instructor.email': regex },
+      ],
+    };
+  }
+
+  /* ===============================
+     ⚙️ SAFE SORT (FIXED ✅)
+  =============================== */
+
+  const allowedSortFields = [
+    'createdAt',
+    'status',
+    'requestedBy',
+    'learner.firstName',
+    'instructor.firstName',
+  ] as const;
+  
+  type SortField = (typeof allowedSortFields)[number];
+  
+  const safeSortBy: SortField = allowedSortFields.includes(sortBy as SortField)
+    ? (sortBy as SortField)
+    : 'createdAt';
+  
+  const safeSortOrder: 1 | -1 = sortOrder === 'asc' ? 1 : -1;
+  
+  const sort: Record<string, 1 | -1> = {
+    [safeSortBy]: safeSortOrder,
+  };
+
+  /* ===============================
+     🚀 PIPELINE
+  =============================== */
+
+  const pipeline: any[] = [
+    {
+      $lookup: {
+        from: 'orders',
+        localField: 'bookingId',
+        foreignField: '_id',
+        as: 'order',
+      },
+    },
+    {
+      $unwind: {
+        path: '$order',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  
+    // ✅ SLOT EXTRACTION (CRITICAL)
+    {
+      $addFields: {
+        slot: {
+          $arrayElemAt: [
+            {
+              $filter: {
+                input: '$order.bookedSlots',
+                as: 'slot',
+                cond: {
+                  $eq: [
+                    { $toString: '$$slot._id' },
+                    { $toString: '$slotId' },
+                  ],
+                },
+              },
+            },
+            0,
+          ],
+        },
+      },
+    },
+  
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'order.learnerId',
+        foreignField: '_id',
+        as: 'learner',
+      },
+    },
+    {
+      $unwind: {
+        path: '$learner',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  
+    {
+      $lookup: {
+        from: 'instructorprofiles',
+        localField: 'order.instructorId',
+        foreignField: '_id',
+        as: 'instructorProfile',
+      },
+    },
+    {
+      $unwind: {
+        path: '$instructorProfile',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'instructorProfile.userId',
+        foreignField: '_id',
+        as: 'instructor',
+      },
+    },
+    {
+      $unwind: {
+        path: '$instructor',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  
+    ...(search ? [{ $match: matchStage }] : []),
+  
+    { $match: query },
+  
+    { $sort: sort },
+  
+    // ✅ FINAL PROJECTION
+    {
+      $project: {
+        _id: 1,
+        status: 1,
+        requestedBy: 1,
+        createdAt: 1,
+  
+        slotDate: '$slot.date',
+        startTime: '$slot.startTime',
+  
+        reasonType: '$slot.actionMeta.reasonType',
+        comment: '$slot.actionMeta.comment',
+  
+        learnerName: {
+          $concat: ['$learner.firstName', ' ', '$learner.lastName'],
+        },
+  
+        instructorName: {
+          $concat: ['$instructor.firstName', ' ', '$instructor.lastName'],
+        },
+      },
+    },
+  
+    {
+      $facet: {
+        data: [
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+        ],
+        total: [{ $count: 'count' }],
+      },
+    },
+  ];
+
+  const result = await this.noShowRequestModel.aggregate(pipeline);
+
+  const data = result[0]?.data || [];
+  const total = result[0]?.total[0]?.count || 0;
+
+  return {
+    data,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+
 
 }
