@@ -74,6 +74,7 @@ export class OrderSlot {
       'RESCHEDULED',
       'PENDING_RESCHEDULE',
       'NOSHOW_REQUESTED',
+      'NOSHOW_APPROVED',
     ],
     default: 'BOOKED',
   })

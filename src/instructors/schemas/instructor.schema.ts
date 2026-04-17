@@ -44,12 +44,17 @@ export class User {
   @Prop()
   createdAt: Date;
 
+  @Prop({ default: "" })
+  public stripeAccountId?: string;
+  
   // ✅ NEW FIELD (IMPORTANT)
   @Prop({
     type: [Vehicle],
     default: [],
   })
   vehicles: Vehicle[];
+  @Prop({ default: 0 })
+walletBalance!: number;
 }
 
 export const InstructorSchema = SchemaFactory.createForClass(User);

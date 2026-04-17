@@ -14,7 +14,9 @@ import { InstructorProfile, InstructorProfileSchema } from "./schemas/instructro
 import { AdminInstructorsService } from "./services/admin-instructors.service";
 import { WalletTransaction, WalletTransactionSchema } from "./schemas/wallet-transactions.schema";
 import { NoShowRequest, NoShowRequestSchema } from "./schemas/no-show-request.schema";
-  
+import { Learner, LearnerSchema } from "src/learners/schema/learner.schema";
+import { InstructorTransaction, InstructorTransactionSchema } from "./schemas/instructor-transactions.schema";
+
   
   @Module({
     imports: [
@@ -27,6 +29,9 @@ import { NoShowRequest, NoShowRequestSchema } from "./schemas/no-show-request.sc
         { name: WalletTransaction.name, schema: WalletTransactionSchema
                },
                {name:NoShowRequest.name,schema:NoShowRequestSchema},
+               {name:Learner.name,schema:LearnerSchema},
+               {name:InstructorTransaction.name, schema:InstructorTransactionSchema}
+
 
       ]),
       JwtModule.register({

@@ -1,3 +1,5 @@
+import { BadRequestException } from "@nestjs/common";
+
 // common/utils/admin-query.util.ts
 export function buildAdminQuery<T>(
     dto: Record<string, any>,
@@ -44,3 +46,104 @@ export function buildAdminQuery<T>(
   
     return filter;
   }
+
+
+  export function normalizeTime(time: unknown): string {
+  if (time instanceof Date) {
+    return time.toISOString().slice(11, 16);
+  }
+
+  if (typeof time === 'string') {
+
+    // already 24-hour format
+    if (/^\d{2}:\d{2}$/.test(time)) {
+      return time;
+    }
+
+    const parts = time.split(' ');
+
+    const timePart = parts[0];
+    const modifier = parts[1];
+
+    if (!timePart) {
+      throw new Error(`Invalid time format: ${time}`);
+    }
+
+    const [hourStr, minute] = timePart.split(':');
+
+    let hour = Number(hourStr);
+
+    if (modifier === 'PM' && hour !== 12) hour += 12;
+    if (modifier === 'AM' && hour === 12) hour = 0;
+
+    return `${hour.toString().padStart(2, '0')}:${minute}`;
+  }
+
+  throw new Error(`Invalid time value: ${JSON.stringify(time)}`);
+}
+
+export function calculateSlotDurationInHours(
+  startTime: string,
+  endTime: string,
+): number {
+  if (!startTime || !endTime) {
+    throw new BadRequestException('Slot time missing');
+  }
+
+  const startMinutes = timeToMinutes(startTime);
+  const endMinutes = timeToMinutes(endTime);
+
+  if (endMinutes <= startMinutes) {
+    throw new BadRequestException(
+      'Invalid to calculate slot hours!',
+    );
+  }
+
+  const diffMinutes = endMinutes - startMinutes;
+
+  return diffMinutes / 60;
+}
+
+export function timeToMinutes(time: string): number {
+  if (!time || typeof time !== 'string') {
+    throw new BadRequestException(`Invalid time value: ${time}`);
+  }
+
+  const normalized = time.trim();
+
+  // 24-hour format: "09:00" or "09:00:00"
+  const twentyFourHr = normalized.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (twentyFourHr) {
+    const hour = Number(twentyFourHr[1]);
+    const minute = Number(twentyFourHr[2]);
+
+    if (hour > 23 || minute > 59) {
+      throw new BadRequestException(`Invalid 24h time: ${time}`);
+    }
+
+    return hour * 60 + minute;
+  }
+
+  // 12-hour format: "09:00 AM"
+  const twelveHr = normalized.match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/i);
+  
+  if (twelveHr) {
+    let hour = Number(twelveHr[1]);
+    const minute = Number(twelveHr[2]);
+    if(!twelveHr[3]){
+      throw new BadRequestException(`Getting time format error.`)
+    }
+    const meridian = twelveHr[3].toUpperCase();
+
+    if (hour > 12 || minute > 59) {
+      throw new BadRequestException(`Invalid 12h time: ${time}`);
+    }
+
+    if (meridian === 'PM' && hour !== 12) hour += 12;
+    if (meridian === 'AM' && hour === 12) hour = 0;
+
+    return hour * 60 + minute;
+  }
+
+  throw new BadRequestException(`Invalid time format: ${time}`);
+}

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import {
@@ -8,11 +8,16 @@ import {
 import { PrivateLearner, PrivateLearnerDocument } from "../schemas/private-learner.schema";
 import { Order, OrderDocument } from "../schemas/orders.schema";
 import { PrivateOrder, PrivateOrderDocument } from "../schemas/private-order.schema";
-import { InstructorProfile, InstructorProfileDocument } from "../schemas/instructro-profiles.schema";
+import { InstructorDocuments, InstructorProfile, InstructorProfileDocument } from "../schemas/instructro-profiles.schema";
 import { json } from "stream/consumers";
 import { AdminQueryDto } from "src/common/dto/admin-query.dto";
 import { WalletTransaction, WalletTransactionDocument } from "../schemas/wallet-transactions.schema";
-import { NoShowRequest, NoShowRequestDocument } from "../schemas/no-show-request.schema";
+import { NoShowRequest, NoShowRequestDocument, NoShowStatus, NoShowDecision } from "../schemas/no-show-request.schema";
+import { InstructorsController } from "../controllers/instructors.controller";
+import { InstructorTransaction } from "../schemas/instructor-transactions.schema";
+
+import { calculateSlotDurationInHours, normalizeTime } from "src/common/utils/admin-query.util";
+import { Learner, LearnerDocument } from "src/learners/schema/learner.schema";
 
 
 @Injectable()
@@ -36,6 +41,11 @@ export class InstructorsService {
 
     @InjectModel(NoShowRequest.name)
       private noShowRequestModel: Model<NoShowRequestDocument>,
+    @InjectModel(InstructorTransaction.name)
+    private instructorTransactionModel: Model<InstructorTransaction>,
+
+    @InjectModel(Learner.name)
+        private learnerModel: Model<LearnerDocument>,
   ) {}
 
   async setActive(id: string, isActive: boolean) {
@@ -699,5 +709,259 @@ async getAllNoShowRequests({
 }
 
 
+async approveNoShowSlot(
+  noShowRequestId: string,
+  adminId: string,
+  decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER',
+) {
+  const request = await this.noShowRequestModel.findById(noShowRequestId);
+
+  if (!request) {
+    throw new BadRequestException('Request not found');
+  }
+
+  if (request.status !== 'PENDING') {
+    throw new BadRequestException('Request already processed');
+  }
+
+  const order = await this.orderModel.findById(
+    new Types.ObjectId(request.bookingId),
+  );
+
+  if (!order) {
+    throw new BadRequestException('Order not found');
+  }
+
+  const slot = order.bookedSlots.id(
+    new Types.ObjectId(request.slotId),
+  );
+
+  if (!slot) {
+    throw new BadRequestException('Slot not found');
+  }
+
+  // 🔥 IMPORTANT FIX
+  if (slot.status !== 'NOSHOW_REQUESTED') {
+    throw new BadRequestException(
+      `Invalid slot status: ${slot.status}`,
+    );
+  }
+
+  const hours = calculateSlotDurationInHours(
+    normalizeTime(slot.startTime),
+    normalizeTime(slot.endTime),
+  );
+
+  /* ===============================
+     🎯 DECISION
+  =============================== */
+
+  if (decision === 'PAY_INSTRUCTOR') {
+    await this.handleInstructorPayout(order, slot, hours);
+    slot.status = 'NOSHOW';
+    request.decision = NoShowDecision.PAY_INSTRUCTOR;
+  } else {
+    await this.handleLearnerRefund(order, slot, hours);
+    slot.status = 'CANCELLED';
+    request.decision = NoShowDecision.REFUND_LEARNER
+  }
+
+  /* ===============================
+     ✅ UPDATE REQUEST
+  =============================== */
+
+  request.status = NoShowStatus.APPROVED
+  request.adminId = new Types.ObjectId(adminId);
+  
+
+  await request.save();
+  await order.save();
+
+  return {
+    success: true,
+    message: 'No-show request approved',
+  };
+}
+
+
+async rejectNoShowSlot(
+  noShowRequestId: string,
+  adminId: string,
+  remark: string,
+) {
+  const request = await this.noShowRequestModel.findById(noShowRequestId);
+
+  if (!request) {
+    throw new BadRequestException('NoShow request not found');
+  }
+
+  request.status = NoShowStatus.REJECTED;
+  request.adminId = new Types.ObjectId(adminId);
+  request.adminRemark = remark;
+
+  await request.save();
+
+  return { success: true };
+}
+
+
+
+async handleInstructorPayout(order, slot, hours) {
+  let grossAmount = 0;
+  let pricePerHour = 0;
+
+  if (slot.type === 'LESSON') {
+    grossAmount = hours * order.pricePerHour;
+    pricePerHour = order.pricePerHour;
+  }
+
+  if (slot.type === 'TEST') {
+    grossAmount = order.testPrice;
+    pricePerHour = order.testPrice;
+  }
+
+  const platformCommission = grossAmount * 0.17;
+  const instructorEarning = grossAmount - platformCommission;
+
+  /* ===============================
+     💳 CREATE INSTRUCTOR TXN
+  =============================== */
+  const txn = await this.instructorTransactionModel.create({
+    orderId: order._id,
+    slotId: slot._id,
+    learnerId: order.learnerId,
+    instructorId: order.instructorId,
+    type: slot.type,
+    hours,
+    pricePerHour,
+    grossAmount,
+    platformCommission,
+    instructorEarning,
+    payoutStatus: 'PAID', // ✅ since we directly credit wallet
+    payoutDate: new Date(),
+  });
+
+  /* ===============================
+     💰 GET INSTRUCTOR USER
+  =============================== */
+  const instructorProfile = await this.instructorProfileModel.findById(
+    order.instructorId,
+  );
+
+  if (!instructorProfile) {
+    throw new BadRequestException('Instructor profile not found');
+  }
+
+  const instructor = await this.instructorModel.findByIdAndUpdate(
+    instructorProfile.userId,
+    { $inc: { walletBalance: instructorEarning } },
+    { new: true },
+  );
+
+  if (!instructor) {
+    throw new BadRequestException('Instructor not found');
+  }
+
+  /* ===============================
+     🧾 WALLET LEDGER ENTRY
+  =============================== */
+  // 1️⃣ Update wallet
+await this.instructorModel.findByIdAndUpdate(
+  instructorProfile.userId,
+  { $inc: { walletBalance: instructorEarning } },
+);
+
+// 2️⃣ Create ledger entry
+await this.walletModel.create({
+  userId: instructor._id,
+  role: 'instructor',
+  type: 'CREDIT',
+  amount: instructorEarning,
+  balanceAfter: instructor.walletBalance,
+  source: 'NOSHOW',
+  referenceEntityId: txn._id
+});
+  /* ===============================
+     ⏱️ UPDATE ORDER HOURS
+  =============================== */
+  order.usedHours += hours;
+  order.remainingHours -= hours;
+
+  if (order.remainingHours <= 0) {
+    order.scheduleStatus = 'FULLY_SCHEDULED';
+  }
+
+  await order.save();
+
+  return {
+    success: true,
+    instructorEarning,
+  };
+}
+
+
+async handleLearnerRefund(order, slot, hours) {
+  // 💰 Calculate refund amount
+  let refundAmount = 0;
+
+  if (slot.type === 'LESSON') {
+    refundAmount = hours * order.pricePerHour;
+  }
+
+  if (slot.type === 'TEST') {
+    refundAmount = order.testPrice;
+  }
+
+  /* ===============================
+     💰 GET WALLET
+  =============================== */
+  const wallet = await this.learnerModel.findById({
+    _id:order.learnerId,
+  });
+
+  if (!wallet) {
+    throw new BadRequestException('Wallet not found');
+  }
+
+  const newBalance = wallet.walletBalance + refundAmount;
+
+  /* ===============================
+     💳 CREATE TRANSACTION
+  =============================== */
+  await this.walletModel.create({
+    learnerId: order.learnerId,
+    
+    amount: refundAmount,
+    type: 'CREDIT',
+    source: 'REFUND',
+    description: 'NOSHOW_REFUND' +  "orderId:" + order._id + "slotId:" + slot._id,
+
+    // ✅ REQUIRED
+    balanceAfter: newBalance,
+  });
+
+  /* ===============================
+     💰 UPDATE WALLET
+  =============================== */
+  wallet.walletBalance = newBalance;
+  await wallet.save();
+
+  /* ===============================
+     ⏱️ RESTORE HOURS
+  =============================== */
+  order.usedHours -= hours;
+  order.remainingHours += hours;
+
+  if (order.remainingHours > 0) {
+    order.scheduleStatus = 'PARTIALLY_SCHEDULED';
+  }
+
+  await order.save();
+
+  return {
+    success: true,
+    refundedAmount: refundAmount,
+  };
+}
 
 }

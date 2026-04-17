@@ -186,4 +186,55 @@ async getAllNoShowRequests(
 }
 
 
+ /* ===============================
+     ✅ APPROVE
+  =============================== */
+  @Patch('no-show-requests/:id/approve')
+  
+  async approveNoShow(
+    @Param('id') noShowRequestId: string,
+    // @CurrentUser() user: JwtPayload,
+    @Body('decision')
+    decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER',
+  ) {
+    if (!decision) {
+      throw new BadRequestException('Decision is required');
+    }
+
+    if (
+      decision !== 'PAY_INSTRUCTOR' &&
+      decision !== 'REFUND_LEARNER'
+    ) {
+      throw new BadRequestException('Invalid decision');
+    }
+
+    return this.instructorsService.approveNoShowSlot(
+      noShowRequestId,
+      // user.sub,
+      "69e132dcf5d95497780e164c",
+      decision,
+    );
+  }
+
+  /* ===============================
+     ❌ REJECT
+  =============================== */
+  @Patch('no-show-requests/:id/reject')
+  async rejectNoShow(
+    @Param('id') noShowRequestId: string,
+    // @CurrentUser() user: JwtPayload,
+    @Body('remark') remark: string,
+  ) {
+    if (!remark) {
+      throw new BadRequestException('Remark is required');
+    }
+
+    return this.instructorsService.rejectNoShowSlot(
+      noShowRequestId,
+      // user.sub,
+      '69e132dcf5d95497780e164c',
+      remark,
+    );
+  }
+
 }
