@@ -481,6 +481,232 @@ export class InstructorsService {
   };
 }
 
+// async getAllNoShowRequests({
+//   page,
+//   limit,
+//   status,
+//   requestedBy,
+//   search,
+//   sortBy,
+//   sortOrder,
+//   startDate,
+//   endDate,
+// }: {
+//   page: number;
+//   limit: number;
+//   status?: string;
+//   requestedBy?: string;
+//   search?: string;
+//   sortBy?: string;
+//   sortOrder?: 'asc' | 'desc';
+//   startDate?: string;
+//   endDate?: string;
+// }) {
+//   const query: any = {};
+
+//   /* ===============================
+//      🎯 FILTERS
+//   =============================== */
+//   if (status) query.status = status;
+//   if (requestedBy) query.requestedBy = requestedBy;
+
+//   /* ===============================
+//      📅 DATE RANGE
+//   =============================== */
+//   if (startDate || endDate) {
+//     query.createdAt = {};
+//     if (startDate) query.createdAt.$gte = new Date(startDate);
+//     if (endDate) query.createdAt.$lte = new Date(endDate);
+//   }
+
+//   /* ===============================
+//      🔍 SEARCH
+//   =============================== */
+//   let matchStage: any = {};
+
+//   if (search) {
+//     const regex = new RegExp(search, 'i');
+
+//     matchStage = {
+//       $or: [
+//         { 'learner.firstName': regex },
+//         { 'learner.lastName': regex },
+//         { 'learner.email': regex },
+//         { 'instructor.firstName': regex },
+//         { 'instructor.lastName': regex },
+//         { 'instructor.email': regex },
+//       ],
+//     };
+//   }
+
+//   /* ===============================
+//      ⚙️ SAFE SORT (FIXED ✅)
+//   =============================== */
+
+//   const allowedSortFields = [
+//     'createdAt',
+//     'status',
+//     'requestedBy',
+//     'learner.firstName',
+//     'instructor.firstName',
+//   ] as const;
+  
+//   type SortField = (typeof allowedSortFields)[number];
+  
+//   const safeSortBy: SortField = allowedSortFields.includes(sortBy as SortField)
+//     ? (sortBy as SortField)
+//     : 'createdAt';
+  
+//   const safeSortOrder: 1 | -1 = sortOrder === 'asc' ? 1 : -1;
+  
+//   const sort: Record<string, 1 | -1> = {
+//     [safeSortBy]: safeSortOrder,
+//   };
+
+//   /* ===============================
+//      🚀 PIPELINE
+//   =============================== */
+
+//   const pipeline: any[] = [
+//     {
+//       $lookup: {
+//         from: 'orders',
+//         localField: 'bookingId',
+//         foreignField: '_id',
+//         as: 'order',
+//       },
+//     },
+//     {
+//       $unwind: {
+//         path: '$order',
+//         preserveNullAndEmptyArrays: true,
+//       },
+//     },
+  
+//     // ✅ SLOT EXTRACTION (CRITICAL)
+//     {
+//       $addFields: {
+//         slot: {
+//           $arrayElemAt: [
+//             {
+//               $filter: {
+//                 input: '$order.bookedSlots',
+//                 as: 'slot',
+//                 cond: {
+//                   $eq: [
+//                     { $toString: '$$slot._id' },
+//                     { $toString: '$slotId' },
+//                   ],
+//                 },
+//               },
+//             },
+//             0,
+//           ],
+//         },
+//       },
+//     },
+  
+//     {
+//       $lookup: {
+//         from: 'learners',
+//         localField: 'order.learnerId',
+//         foreignField: '_id',
+//         as: 'learner',
+//       },
+//     },
+//     {
+//       $unwind: {
+//         path: '$learner',
+//         preserveNullAndEmptyArrays: true,
+//       },
+//     },
+  
+//     {
+//       $lookup: {
+//         from: 'instructorprofiles',
+//         localField: 'order.instructorId',
+//         foreignField: '_id',
+//         as: 'instructorProfile',
+//       },
+//     },
+//     {
+//       $unwind: {
+//         path: '$instructorProfile',
+//         preserveNullAndEmptyArrays: true,
+//       },
+//     },
+  
+//     {
+//       $lookup: {
+//         from: 'users',
+//         localField: 'instructorProfile.userId',
+//         foreignField: '_id',
+//         as: 'instructor',
+//       },
+//     },
+//     {
+//       $unwind: {
+//         path: '$instructor',
+//         preserveNullAndEmptyArrays: true,
+//       },
+//     },
+  
+//     ...(search ? [{ $match: matchStage }] : []),
+  
+//     { $match: query },
+  
+//     { $sort: sort },
+  
+//     // ✅ FINAL PROJECTION
+//     {
+//       $project: {
+//         _id: 1,
+//         status: 1,
+//         requestedBy: 1,
+//         createdAt: 1,
+  
+//         slotDate: '$slot.date',
+//         startTime: '$slot.startTime',
+  
+//         reasonType: '$slot.actionMeta.reasonType',
+//         comment: '$slot.actionMeta.comment',
+  
+//         learnerName: {
+//           $concat: ['$learner.firstName', ' ', '$learner.lastName'],
+//         },
+  
+//         instructorName: {
+//           $concat: ['$instructor.firstName', ' ', '$instructor.lastName'],
+//         },
+//       },
+//     },
+  
+//     {
+//       $facet: {
+//         data: [
+//           { $skip: (page - 1) * limit },
+//           { $limit: limit },
+//         ],
+//         total: [{ $count: 'count' }],
+//       },
+//     },
+//   ];
+
+//   const result = await this.noShowRequestModel.aggregate(pipeline);
+
+//   const data = result[0]?.data || [];
+//   const total = result[0]?.total[0]?.count || 0;
+
+//   return {
+//     data,
+//     pagination: {
+//       total,
+//       page,
+//       limit,
+//       totalPages: Math.ceil(total / limit),
+//     },
+//   };
+// }
 async getAllNoShowRequests({
   page,
   limit,
@@ -531,6 +757,7 @@ async getAllNoShowRequests({
       $or: [
         { 'learner.firstName': regex },
         { 'learner.lastName': regex },
+        { 'learner.name': regex }, // ✅ fallback
         { 'learner.email': regex },
         { 'instructor.firstName': regex },
         { 'instructor.lastName': regex },
@@ -540,7 +767,7 @@ async getAllNoShowRequests({
   }
 
   /* ===============================
-     ⚙️ SAFE SORT (FIXED ✅)
+     ⚙️ SAFE SORT
   =============================== */
 
   const allowedSortFields = [
@@ -550,15 +777,15 @@ async getAllNoShowRequests({
     'learner.firstName',
     'instructor.firstName',
   ] as const;
-  
+
   type SortField = (typeof allowedSortFields)[number];
-  
+
   const safeSortBy: SortField = allowedSortFields.includes(sortBy as SortField)
     ? (sortBy as SortField)
     : 'createdAt';
-  
+
   const safeSortOrder: 1 | -1 = sortOrder === 'asc' ? 1 : -1;
-  
+
   const sort: Record<string, 1 | -1> = {
     [safeSortBy]: safeSortOrder,
   };
@@ -568,6 +795,9 @@ async getAllNoShowRequests({
   =============================== */
 
   const pipeline: any[] = [
+    /* ===============================
+       ORDER JOIN
+    =============================== */
     {
       $lookup: {
         from: 'orders',
@@ -582,8 +812,10 @@ async getAllNoShowRequests({
         preserveNullAndEmptyArrays: true,
       },
     },
-  
-    // ✅ SLOT EXTRACTION (CRITICAL)
+
+    /* ===============================
+       SLOT EXTRACTION
+    =============================== */
     {
       $addFields: {
         slot: {
@@ -605,12 +837,32 @@ async getAllNoShowRequests({
         },
       },
     },
-  
+
+    /* ===============================
+       ✅ FIXED LEARNER LOOKUP (KEY FIX)
+    =============================== */
     {
       $lookup: {
-        from: 'users',
-        localField: 'order.learnerId',
-        foreignField: '_id',
+        from: 'learners',
+        let: { learnerId: '$order.learnerId' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: [
+                  '$_id',
+                  {
+                    $cond: [
+                      { $eq: [{ $type: '$$learnerId' }, 'string'] },
+                      { $toObjectId: '$$learnerId' },
+                      '$$learnerId',
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        ],
         as: 'learner',
       },
     },
@@ -620,7 +872,10 @@ async getAllNoShowRequests({
         preserveNullAndEmptyArrays: true,
       },
     },
-  
+
+    /* ===============================
+       INSTRUCTOR LOOKUP
+    =============================== */
     {
       $lookup: {
         from: 'instructorprofiles',
@@ -635,7 +890,6 @@ async getAllNoShowRequests({
         preserveNullAndEmptyArrays: true,
       },
     },
-  
     {
       $lookup: {
         from: 'users',
@@ -650,37 +904,47 @@ async getAllNoShowRequests({
         preserveNullAndEmptyArrays: true,
       },
     },
-  
+
     ...(search ? [{ $match: matchStage }] : []),
-  
+
     { $match: query },
-  
+
     { $sort: sort },
-  
-    // ✅ FINAL PROJECTION
+
+    /* ===============================
+       FINAL PROJECTION
+    =============================== */
     {
       $project: {
         _id: 1,
         status: 1,
         requestedBy: 1,
         createdAt: 1,
-  
+
         slotDate: '$slot.date',
         startTime: '$slot.startTime',
-  
+        endTime: '$slot.endTime',
+
         reasonType: '$slot.actionMeta.reasonType',
+        attachment: '$slot.actionMeta.attachment',
         comment: '$slot.actionMeta.comment',
   
+
+        /* ✅ SAFE LEARNER NAME */
         learnerName: {
-          $concat: ['$learner.firstName', ' ', '$learner.lastName'],
+          $cond: [
+            { $and: ['$learner.firstName', '$learner.lastName'] },
+            { $concat: ['$learner.firstName', ' ', '$learner.lastName'] },
+            { $ifNull: ['$learner.name', 'N/A'] },
+          ],
         },
-  
+
         instructorName: {
           $concat: ['$instructor.firstName', ' ', '$instructor.lastName'],
         },
       },
     },
-  
+
     {
       $facet: {
         data: [
