@@ -312,15 +312,16 @@ async approveRefund(requestId: string) {
     );
 
     const transactions = matchTransactionData.data;
-console.log("transactions",transactions)
     if (!transactions.length) {
       throw new BadRequestException('No credited transactions found');
     }
 
+    const finalRefundAmount = transactions[0].amount - transactions[0].order.platformCharge - transactions[0].order.discount;
+    console.log("finalRefundAmount",finalRefundAmount)
     // 1️⃣ Stripe call
     const refund = await this.stripe.refunds.create({
       payment_intent: txn.stripePaymentIntentId,
-      amount: Math.round(txn.amount * 100),
+      amount: Math.round(finalRefundAmount * 100),
     });
 
     // 2️⃣ Update original txn
