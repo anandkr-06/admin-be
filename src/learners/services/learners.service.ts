@@ -304,6 +304,19 @@ async approveRefund(requestId: string) {
   }
 
   try {
+
+    // ✅ Get credited transactions
+    const matchTransactionData = await this.creditedAccounts(
+      txn.learnerId,
+      txn.stripePaymentIntentId
+    );
+
+    const transactions = matchTransactionData.data;
+console.log("transactions",transactions)
+    if (!transactions.length) {
+      throw new BadRequestException('No credited transactions found');
+    }
+
     // 1️⃣ Stripe call
     const refund = await this.stripe.refunds.create({
       payment_intent: txn.stripePaymentIntentId,
@@ -520,4 +533,75 @@ async getRefundRequests(dto: RefundRequestQueryDto) {
   };
 }
 
+
+
+
+async creditedAccounts(learnerId: any, stripePaymentIntentId: any) {
+  if (!learnerId) {
+    throw new BadRequestException('Invalid learnerId!');
+  }
+
+  if (!stripePaymentIntentId) {
+    throw new BadRequestException('stripePaymentIntentId is required');
+  }
+
+  const learnerObjectId = new Types.ObjectId(learnerId);
+
+  const transactions = await this.walletModel.aggregate([
+    {
+      $match: {
+        learnerId: learnerObjectId,
+        type: 'CREDIT',
+        status: 'COMPLETED',
+        source: { $in: ['GIFT_VOUCHER', 'ORDER', 'STRIPE'] },
+        stripePaymentIntentId,
+      },
+    },
+    {
+      $lookup: {
+        from: 'orders',
+        localField: 'referenceEntityId',
+        foreignField: '_id',
+        as: 'orderDetails',
+      },
+    },
+    {
+      $unwind: {
+        path: '$orderDetails',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $sort: { createdAt: -1 },
+    },
+    {
+      $project: {
+        _id: 1, // ✅ keep it
+        source: 1,
+        amount: 1,
+        refundedAmount: 1, // ✅ important
+        balanceAfter: 1,
+        status: 1,
+        stripePaymentIntentId: 1,
+        createdAt: 1,
+        isRefund: 1,
+
+        order: {
+          _id: '$orderDetails._id',
+          orderId: '$orderDetails.orderId',
+          totalAmount: '$orderDetails.totalAmount',
+          pricePerHour: '$orderDetails.pricePerHour',
+          status: '$orderDetails.status',
+          purchaseAmount: '$orderDetails.purchaseAmount',
+          discount: '$orderDetails.discount',
+          platformCharge: '$orderDetails.platformCharge',
+        },
+      },
+    },
+  ]);
+
+  return {
+    data: transactions,
+  };
+}
 }

@@ -1122,7 +1122,7 @@ async handleInstructorPayout(order, slot, hours) {
         : 0,
     };
   });
-  
+  console.log("transactions data:",transactions);
   const percentageDiscount = getDiscountSummary(transactions);
   console.log("percentageDiscount",percentageDiscount.effectiveDiscount);
 const discountCommission = Number(
