@@ -147,3 +147,33 @@ export function timeToMinutes(time: string): number {
 
   throw new BadRequestException(`Invalid time format: ${time}`);
 }
+
+
+type Transaction = {
+  amount: number;
+  discountPercent: number;
+};
+
+export function getDiscountSummary(transactions: Transaction[]) {
+  const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+
+  const totalDiscount = transactions.reduce(
+    (sum, t) => sum + (t.amount * t.discountPercent) / 100,
+    0
+  );
+
+  return {
+    totalAmount,
+    totalDiscount,
+    effectiveDiscount: totalAmount
+      ? (totalDiscount / totalAmount) * 100
+      : 0,
+  };
+}
+
+// const transactions: Transaction[] = [
+//   { amount: 100, discountPercent: 5 },
+//   { amount: 200, discountPercent: 10 },
+//   { amount: 50, discountPercent: 0 },
+// ];
+// console.log(getDiscountSummary(transactions));

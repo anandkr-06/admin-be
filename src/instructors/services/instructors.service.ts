@@ -16,7 +16,7 @@ import { NoShowRequest, NoShowRequestDocument, NoShowStatus, NoShowDecision } fr
 import { InstructorsController } from "../controllers/instructors.controller";
 import { InstructorTransaction } from "../schemas/instructor-transactions.schema";
 
-import { calculateSlotDurationInHours, normalizeTime } from "src/common/utils/admin-query.util";
+import { calculateSlotDurationInHours, getDiscountSummary, normalizeTime } from "src/common/utils/admin-query.util";
 import { Learner, LearnerDocument } from "src/learners/schema/learner.schema";
 
 
@@ -821,7 +821,50 @@ async handleInstructorPayout(order, slot, hours) {
   }
 
   const platformCommission = grossAmount * 0.17;
-  const instructorEarning = grossAmount - platformCommission;
+  
+
+  /* ===============================
+     💳 Get discount commision
+  =============================== */
+  type OrderDoc = {
+    stripeAmount: number;
+    discount: number;        // discount amount (NOT %)
+    platformCharge: number;
+  };
+  
+  type Transaction = {
+    amount: number;
+    discountPercent: number;
+  };
+  
+  const instructorOrderDataDicount: OrderDoc[] =
+    await this.orderModel.find(
+      { instructorId: order.instructorId, paymentStatus: 'PAID' },
+      {
+        stripeAmount: 1,
+        discount: 1,
+        platformCharge: 1,
+      }
+    ).lean();
+  
+  const transactions: Transaction[] = instructorOrderDataDicount.map((item) => {
+    const amount =
+      item.stripeAmount + item.discount - item.platformCharge;
+  
+    return {
+      amount,
+      discountPercent: amount
+        ? (item.discount / amount) * 100
+        : 0,
+    };
+  });
+  
+  const percentageDiscount = getDiscountSummary(transactions);
+  console.log("percentageDiscount",percentageDiscount.effectiveDiscount);
+const discountCommission = Number(
+  (grossAmount * (percentageDiscount.effectiveDiscount / 100)).toFixed(2)
+);
+const instructorEarning = grossAmount - platformCommission - discountCommission;
 
   /* ===============================
      💳 CREATE INSTRUCTOR TXN
@@ -836,6 +879,7 @@ async handleInstructorPayout(order, slot, hours) {
     pricePerHour,
     grossAmount,
     platformCommission,
+    discountCommission,
     instructorEarning,
     payoutStatus: 'PAID', // ✅ since we directly credit wallet
     payoutDate: new Date(),
