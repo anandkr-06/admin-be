@@ -195,7 +195,7 @@ async getAllNoShowRequests(
     @Param('id') noShowRequestId: string,
     // @CurrentUser() user: JwtPayload,
     @Body() body: { decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER';
-      remarks: string}
+      remark: string}
     //@Body('decision')
     // decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER',
   ) {
@@ -215,7 +215,7 @@ async getAllNoShowRequests(
       // user.sub,
       "69e132dcf5d95497780e164c",
       body.decision,
-      body.remarks,
+      body.remark,
     );
   }
 
