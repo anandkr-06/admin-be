@@ -977,6 +977,7 @@ async approveNoShowSlot(
   noShowRequestId: string,
   adminId: string,
   decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER',
+  remark:string
 ) {
   const request = await this.noShowRequestModel.findById(noShowRequestId);
 
@@ -1036,7 +1037,7 @@ async approveNoShowSlot(
 
   request.status = NoShowStatus.APPROVED
   request.adminId = new Types.ObjectId(adminId);
-  
+  request.adminRemark = remark;
 
   await request.save();
   await order.save();

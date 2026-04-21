@@ -98,6 +98,12 @@ export class WalletTransaction {
  
    @Prop({required: false})
    stripeChargeId?: string;
+
+   @Prop({required: false})
+   stripeRefundId?: string;
+
+   @Prop({required:false})
+   refundAmount: number;
 }
 
 export type WalletTransactionDocument = WalletTransaction & Document & { _id: Types.ObjectId };

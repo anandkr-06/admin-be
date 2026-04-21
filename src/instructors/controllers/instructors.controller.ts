@@ -194,16 +194,18 @@ async getAllNoShowRequests(
   async approveNoShow(
     @Param('id') noShowRequestId: string,
     // @CurrentUser() user: JwtPayload,
-    @Body('decision')
-    decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER',
+    @Body() body: { decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER';
+      remarks: string}
+    //@Body('decision')
+    // decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER',
   ) {
-    if (!decision) {
+    if (!body.decision) {
       throw new BadRequestException('Decision is required');
     }
 
     if (
-      decision !== 'PAY_INSTRUCTOR' &&
-      decision !== 'REFUND_LEARNER'
+      body.decision !== 'PAY_INSTRUCTOR' &&
+      body.decision !== 'REFUND_LEARNER'
     ) {
       throw new BadRequestException('Invalid decision');
     }
@@ -212,7 +214,8 @@ async getAllNoShowRequests(
       noShowRequestId,
       // user.sub,
       "69e132dcf5d95497780e164c",
-      decision,
+      body.decision,
+      body.remarks,
     );
   }
 

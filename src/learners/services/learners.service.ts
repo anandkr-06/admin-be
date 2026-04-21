@@ -296,6 +296,67 @@ async paginate(model: any, filter: any, dto: AdminQueryDto) {
  * @param requestId 
  * @returns 
  */
+// async approveRefund(requestId: string) {
+//   const txn = await this.walletModel.findById(requestId);
+
+//   if (!txn || txn.status !== 'PENDING') {
+//     throw new BadRequestException('Invalid request');
+//   }
+
+//   try {
+
+//     // ✅ Get credited transactions
+//     const matchTransactionData = await this.creditedAccounts(
+//       txn.learnerId,
+//       txn.stripePaymentIntentId
+//     );
+
+//     const transactions = matchTransactionData.data;
+//     if (!transactions.length) {
+//       throw new BadRequestException('No credited transactions found');
+//     }
+
+//     const finalRefundAmount = transactions[0].amount - transactions[0].order.platformCharge - transactions[0].order.discount;
+//     console.log("finalRefundAmount",finalRefundAmount)
+//     // 1️⃣ Stripe call
+//     const refund = await this.stripe.refunds.create({
+//       payment_intent: txn.stripePaymentIntentId,
+//       amount: Math.round(finalRefundAmount * 100),
+//     });
+
+//     // 2️⃣ Update original txn
+//     await this.walletModel.updateOne(
+//       {
+//         learnerId: txn.learnerId,
+//         stripePaymentIntentId: txn.stripePaymentIntentId,
+//         type: 'CREDIT',
+//       },
+//       {
+//         $inc: { refundedAmount: txn.amount },
+//       },
+//     );
+
+//     // 3️⃣ Mark refund txn
+//     txn.status = WalletTxnStatus.COMPLETED;
+//     txn.description = 'Refund approved and processed';
+//     // txn.referenceEntityId = refund.id; // ✅ FIXED
+//     (txn as any).stripeRefundId = refund.id; // optional
+//     await txn.save();
+
+//     return {
+//       message: 'Refund approved',
+//       refundId: refund.id,
+//     };
+
+//   } catch (error) {
+//     console.error('Refund Error:', error);
+
+//     txn.status = WalletTxnStatus.FAILED;
+//     await txn.save();
+
+//     throw new BadRequestException('Refund failed');
+//   }
+// }
 async approveRefund(requestId: string) {
   const txn = await this.walletModel.findById(requestId);
 
@@ -304,48 +365,63 @@ async approveRefund(requestId: string) {
   }
 
   try {
-
-    // ✅ Get credited transactions
+    // ✅ Get all credited transactions for this learner/payment intent
     const matchTransactionData = await this.creditedAccounts(
       txn.learnerId,
       txn.stripePaymentIntentId
     );
 
-    const transactions = matchTransactionData.data;
+    let transactions = matchTransactionData.data;
     if (!transactions.length) {
       throw new BadRequestException('No credited transactions found');
     }
 
-    const finalRefundAmount = transactions[0].amount - transactions[0].order.platformCharge - transactions[0].order.discount;
-    console.log("finalRefundAmount",finalRefundAmount)
-    // 1️⃣ Stripe call
-    const refund = await this.stripe.refunds.create({
-      payment_intent: txn.stripePaymentIntentId,
-      amount: Math.round(finalRefundAmount * 100),
-    });
-
-    // 2️⃣ Update original txn
-    await this.walletModel.updateOne(
-      {
-        learnerId: txn.learnerId,
-        stripePaymentIntentId: txn.stripePaymentIntentId,
-        type: 'CREDIT',
-      },
-      {
-        $inc: { refundedAmount: txn.amount },
-      },
+    // ✅ Sort transactions FIFO (oldest first)
+    transactions = transactions.sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
 
-    // 3️⃣ Mark refund txn
+    let refundRemaining = txn.amount; // total refund requested
+    let totalRefundAmount = 0;
+
+    // ✅ Walk through credits FIFO until refund is satisfied
+    for (const creditTxn of transactions) {
+      if (refundRemaining <= 0) break;
+
+      const available = creditTxn.amount - creditTxn.order.platformCharge - creditTxn.order.discount;
+
+      const refundPortion = Math.min(available, refundRemaining);
+      refundRemaining -= refundPortion;
+      totalRefundAmount += refundPortion;
+
+      // Update each credit transaction’s refunded amount
+      await this.walletModel.updateOne(
+        { _id: creditTxn._id },
+        { $inc: { refundedAmount: refundPortion } }
+      );
+    }
+
+    if (totalRefundAmount <= 0) {
+      throw new BadRequestException('Calculated refund amount invalid');
+    }
+
+    // ✅ Stripe refund call
+    const refund = await this.stripe.refunds.create({
+      payment_intent: txn.stripePaymentIntentId,
+      amount: Math.round(totalRefundAmount * 100), // in cents
+    });
+
+    // ✅ Update original refund request txn
     txn.status = WalletTxnStatus.COMPLETED;
-    txn.description = 'Refund approved and processed';
-    // txn.referenceEntityId = refund.id; // ✅ FIXED
-    (txn as any).stripeRefundId = refund.id; // optional
+    txn.description = `Refund of ${totalRefundAmount} approved (FIFO applied)`;
+    txn.stripeRefundId = refund.id;
+    txn.refundAmount = totalRefundAmount;
     await txn.save();
 
     return {
       message: 'Refund approved',
       refundId: refund.id,
+      refundedAmount: totalRefundAmount,
     };
 
   } catch (error) {
@@ -357,7 +433,6 @@ async approveRefund(requestId: string) {
     throw new BadRequestException('Refund failed');
   }
 }
-
 
 
 async rejectRefund(requestId: string) {
