@@ -920,6 +920,7 @@ async getAllNoShowRequests({
         status: 1,
         requestedBy: 1,
         createdAt: 1,
+        adminRemark:1,
 
         slotDate: '$slot.date',
         startTime: '$slot.startTime',
