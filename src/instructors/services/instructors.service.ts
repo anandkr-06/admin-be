@@ -974,6 +974,27 @@ async getAllNoShowRequests({
 }
 
 
+
+async rejectNoShowSlot(
+  noShowRequestId: string,
+  adminId: string,
+  remark: string,
+) {
+  const request = await this.noShowRequestModel.findById(noShowRequestId);
+
+  if (!request) {
+    throw new BadRequestException('NoShow request not found');
+  }
+
+  request.status = NoShowStatus.REJECTED;
+  request.adminId = new Types.ObjectId(adminId);
+  request.adminRemark = remark;
+
+  await request.save();
+
+  return { success: true };
+}
+
 async approveNoShowSlot(
   noShowRequestId: string,
   adminId: string,
@@ -1049,92 +1070,23 @@ async approveNoShowSlot(
   };
 }
 
-
-async rejectNoShowSlot(
-  noShowRequestId: string,
-  adminId: string,
-  remark: string,
-) {
-  const request = await this.noShowRequestModel.findById(noShowRequestId);
-
-  if (!request) {
-    throw new BadRequestException('NoShow request not found');
-  }
-
-  request.status = NoShowStatus.REJECTED;
-  request.adminId = new Types.ObjectId(adminId);
-  request.adminRemark = remark;
-
-  await request.save();
-
-  return { success: true };
-}
-
-
-
 async handleInstructorPayout(order, slot, hours) {
-  let grossAmount = 0;
-  let pricePerHour = 0;
+  const grossAmount = hours * order.pricePerHour;
+  const pricePerHour = order.pricePerHour;
 
-  if (slot.type === 'LESSON') {
-    grossAmount = hours * order.pricePerHour;
-    pricePerHour = order.pricePerHour;
-  }
-
-  if (slot.type === 'TEST') {
-    grossAmount = order.testPrice;
-    pricePerHour = order.testPrice;
-  }
+  // ✅ Apply FIFO credit consumption
+  const { discountCommission } = await this.handleCreditConsumption.call(
+    this,
+    order.learnerId,
+    hours,
+    pricePerHour,
+    'CONSUME',
+  );
 
   const platformCommission = grossAmount * 0.17;
-  
+  const instructorEarning = grossAmount - platformCommission - discountCommission;
 
-  /* ===============================
-     💳 Get discount commision
-  =============================== */
-  type OrderDoc = {
-    stripeAmount: number;
-    discount: number;        // discount amount (NOT %)
-    platformCharge: number;
-  };
-  
-  type Transaction = {
-    amount: number;
-    discountPercent: number;
-  };
-  
-  const instructorOrderDataDicount: OrderDoc[] =
-    await this.orderModel.find(
-      { instructorId: order.instructorId, paymentStatus: 'PAID' },
-      {
-        stripeAmount: 1,
-        discount: 1,
-        platformCharge: 1,
-      }
-    ).lean();
-  
-  const transactions: Transaction[] = instructorOrderDataDicount.map((item) => {
-    const amount =
-      item.stripeAmount + item.discount - item.platformCharge;
-  
-    return {
-      amount,
-      discountPercent: amount
-        ? (item.discount / amount) * 100
-        : 0,
-    };
-  });
-  console.log("transactions data:",transactions);
-  const percentageDiscount = getDiscountSummary(transactions);
-  console.log("percentageDiscount",percentageDiscount.effectiveDiscount);
-const discountCommission = Number(
-  (grossAmount * (percentageDiscount.effectiveDiscount / 100)).toFixed(2)
-);
-const instructorEarning = grossAmount - platformCommission - discountCommission;
-
-  /* ===============================
-     💳 CREATE INSTRUCTOR TXN
-  =============================== */
+  // 💳 Create instructor transaction (report history)
   const txn = await this.instructorTransactionModel.create({
     orderId: order._id,
     slotId: slot._id,
@@ -1147,131 +1099,138 @@ const instructorEarning = grossAmount - platformCommission - discountCommission;
     platformCommission,
     discountCommission,
     instructorEarning,
-    payoutStatus: 'PAID', // ✅ since we directly credit wallet
+    payoutStatus: 'PAID',
     payoutDate: new Date(),
   });
 
-  /* ===============================
-     💰 GET INSTRUCTOR USER
-  =============================== */
-  const instructorProfile = await this.instructorProfileModel.findById(
-    order.instructorId,
-  );
-
-  if (!instructorProfile) {
-    throw new BadRequestException('Instructor profile not found');
-  }
-
+  // 💰 Update instructor wallet + ledger
+  const instructorProfile = await this.instructorProfileModel.findById(order.instructorId);
   const instructor = await this.instructorModel.findByIdAndUpdate(
-    instructorProfile.userId,
+    instructorProfile?.userId,
     { $inc: { walletBalance: instructorEarning } },
     { new: true },
   );
 
-  if (!instructor) {
-    throw new BadRequestException('Instructor not found');
-  }
+  await this.walletModel.create({
+    userId: instructor?._id,
+    role: 'instructor',
+    type: 'CREDIT',
+    amount: instructorEarning,
+    balanceAfter: instructor?.walletBalance,
+    source: 'NOSHOW',
+    referenceEntityId: txn._id,
+  });
 
-  /* ===============================
-     🧾 WALLET LEDGER ENTRY
-  =============================== */
-  // 1️⃣ Update wallet
-await this.instructorModel.findByIdAndUpdate(
-  instructorProfile.userId,
-  { $inc: { walletBalance: instructorEarning } },
-);
-
-// 2️⃣ Create ledger entry
-await this.walletModel.create({
-  userId: instructor._id,
-  role: 'instructor',
-  type: 'CREDIT',
-  amount: instructorEarning,
-  balanceAfter: instructor.walletBalance,
-  source: 'NOSHOW',
-  referenceEntityId: txn._id
-});
-  /* ===============================
-     ⏱️ UPDATE ORDER HOURS
-  =============================== */
+  // ⏱️ Update order hours
   order.usedHours += hours;
   order.remainingHours -= hours;
-
-  if (order.remainingHours <= 0) {
-    order.scheduleStatus = 'FULLY_SCHEDULED';
-  }
-
+  if (order.remainingHours <= 0) order.scheduleStatus = 'FULLY_SCHEDULED';
   await order.save();
 
-  return {
-    success: true,
-    instructorEarning,
-  };
+  return { success: true, instructorEarning };
 }
-
 
 async handleLearnerRefund(order, slot, hours) {
-  // 💰 Calculate refund amount
-  let refundAmount = 0;
+  const pricePerHour = order.pricePerHour;
 
-  if (slot.type === 'LESSON') {
-    refundAmount = hours * order.pricePerHour;
-  }
+  // ✅ Apply FIFO credit restoration
+  const { totalAmount } = await handleCreditConsumption.call(
+    this,
+    order.learnerId,
+    hours,
+    pricePerHour,
+    'RESTORE',
+  );
 
-  if (slot.type === 'TEST') {
-    refundAmount = order.testPrice;
-  }
-
-  /* ===============================
-     💰 GET WALLET
-  =============================== */
-  const wallet = await this.learnerModel.findById({
-    _id:order.learnerId,
-  });
-
-  if (!wallet) {
-    throw new BadRequestException('Wallet not found');
-  }
-
-  const newBalance = wallet.walletBalance + refundAmount;
-
-  /* ===============================
-     💳 CREATE TRANSACTION
-  =============================== */
-  await this.walletModel.create({
-    learnerId: order.learnerId,
-    
-    amount: refundAmount,
-    type: 'CREDIT',
-    source: 'REFUND',
-    description: 'NOSHOW_REFUND' +  "orderId:" + order._id + "slotId:" + slot._id,
-
-    // ✅ REQUIRED
-    balanceAfter: newBalance,
-  });
-
-  /* ===============================
-     💰 UPDATE WALLET
-  =============================== */
-  wallet.walletBalance = newBalance;
+  const wallet = await this.learnerModel.findById(order.learnerId);
+  wallet.walletBalance += totalAmount;
   await wallet.save();
 
-  /* ===============================
-     ⏱️ RESTORE HOURS
-  =============================== */
+  await this.walletModel.create({
+    learnerId: order.learnerId,
+    amount: totalAmount,
+    type: 'CREDIT',
+    source: 'NOSHOW_REFUND',
+    description: `Refund for order ${order._id}, slot ${slot._id}`,
+    balanceAfter: wallet.walletBalance,
+  });
+
+  // ⏱️ Restore order hours
   order.usedHours -= hours;
   order.remainingHours += hours;
-
-  if (order.remainingHours > 0) {
-    order.scheduleStatus = 'PARTIALLY_SCHEDULED';
-  }
-
+  if (order.remainingHours > 0) order.scheduleStatus = 'PARTIALLY_SCHEDULED';
   await order.save();
 
+  return { success: true, refundedAmount: totalAmount };
+}
+
+
+/**
+ * Unified FIFO Credit Consumption Utility
+ * Handles both payout and refund flows consistently.
+ *
+ * @param learnerId - The learner whose credits are being consumed/restored
+ * @param hours - Number of lesson hours (or test units) to process
+ * @param pricePerHour - Lesson price per hour (or test price)
+ * @param mode - 'CONSUME' for instructor payout, 'RESTORE' for learner refund
+ * @returns { totalAmount, discountCommission, creditsUsed }
+ */
+async handleCreditConsumption(
+  learnerId: string,
+  hours: number,
+  pricePerHour: number,
+  mode: 'CONSUME' | 'RESTORE',
+) {
+  const credits = await this.walletModel.find({
+    learnerId,
+    type: 'CREDIT',
+  }).sort({ createdAt: 1 }); // FIFO
+
+  let hoursRemaining = hours;
+  let totalAmount = 0;
+  let discountCommission = 0;
+  const creditsUsed: any[] = [];
+
+  for (const credit of credits) {
+    if (hoursRemaining <= 0) break;
+
+    const availableHours =
+      mode === 'CONSUME' ? credit.remainingHours : credit.consumedHours;
+
+    if (availableHours <= 0) continue;
+
+    const appliedHours = Math.min(hoursRemaining, availableHours);
+    hoursRemaining -= appliedHours;
+
+    const discountRate = credit.discountRate || 0;
+    const grossValue = appliedHours * pricePerHour;
+    const discountedValue = grossValue * (1 - discountRate);
+
+    if (mode === 'CONSUME') {
+      discountCommission += grossValue * discountRate;
+      credit.remainingHours -= appliedHours;
+      credit.consumedHours += appliedHours;
+    } else {
+      totalAmount += discountedValue;
+      credit.remainingHours += appliedHours;
+      credit.consumedHours -= appliedHours;
+    }
+
+    await credit.save();
+
+    creditsUsed.push({
+      creditId: credit._id,
+      appliedHours,
+      discountRate,
+    });
+  }
+
   return {
-    success: true,
-    refundedAmount: refundAmount,
+    totalAmount,
+    discountCommission,
+    creditsUsed,
   };
 }
+
 
 }
