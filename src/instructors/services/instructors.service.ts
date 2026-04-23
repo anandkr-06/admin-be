@@ -37,16 +37,16 @@ export class InstructorsService {
     @InjectModel(InstructorProfile.name)
     private instructorProfileModel: Model<InstructorProfileDocument>,
     @InjectModel(WalletTransaction.name)
-        private walletModel: Model<WalletTransactionDocument>,
+    private walletModel: Model<WalletTransactionDocument>,
 
     @InjectModel(NoShowRequest.name)
-      private noShowRequestModel: Model<NoShowRequestDocument>,
+    private noShowRequestModel: Model<NoShowRequestDocument>,
     @InjectModel(InstructorTransaction.name)
     private instructorTransactionModel: Model<InstructorTransaction>,
 
     @InjectModel(Learner.name)
-        private learnerModel: Model<LearnerDocument>,
-  ) {}
+    private learnerModel: Model<LearnerDocument>,
+  ) { }
 
   async setActive(id: string, isActive: boolean) {
     return this.instructorModel.findByIdAndUpdate(
@@ -56,7 +56,7 @@ export class InstructorsService {
     );
   }
 
-  
+
   async findAll({
     page,
     limit,
@@ -73,9 +73,9 @@ export class InstructorsService {
     const safePage = Math.max(page, 1);
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     const skip = (safePage - 1) * safeLimit;
-  
+
     const query: any = {};
-  
+
     // 🔍 Search by name or email
     if (search) {
       query.$or = [
@@ -83,14 +83,14 @@ export class InstructorsService {
         { email: { $regex: search, $options: "i" } },
       ];
     }
-  
+
     // 🟢 Status filter
     if (status === "active") query.isActive = true;
     if (status === "inactive") query.isActive = false;
-  
+
     // 🧑‍🏫 Role filter
     if (role) query.role = role;
-  
+
     const [data, total] = await Promise.all([
       this.instructorModel
         .find(query)
@@ -98,10 +98,10 @@ export class InstructorsService {
         .limit(safeLimit)
         .sort({ createdAt: -1 })
         .lean(),
-  
+
       this.instructorModel.countDocuments(query),
     ]);
-  
+
     return {
       data,
       meta: {
@@ -112,7 +112,7 @@ export class InstructorsService {
       },
     };
   }
-  
+
 
   async updateStatus(id: string, isActive: boolean) {
     return this.instructorModel.findByIdAndUpdate(
@@ -121,7 +121,7 @@ export class InstructorsService {
       { new: true }
     );
   }
-  
+
   // 1️⃣ Profile
   // async getProfile(id: string) {
   //   const instructor = await this.instructorModel.findOne({
@@ -141,64 +141,64 @@ export class InstructorsService {
   //   };
   // }
   async getProfile(id: string) {
-  if (!Types.ObjectId.isValid(id)) {
-    throw new NotFoundException('Invalid instructor id');
+    if (!Types.ObjectId.isValid(id)) {
+      throw new NotFoundException('Invalid instructor id');
+    }
+
+    const result = await this.instructorModel.aggregate([
+      {
+        $match: {
+          _id: new Types.ObjectId(id),
+        },
+      },
+
+      // 🔗 Join instructorprofiles
+      {
+        $lookup: {
+          from: 'instructorprofiles', // collection name
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'profile',
+        },
+      },
+
+      {
+        $unwind: {
+          path: '$profile',
+          preserveNullAndEmptyArrays: true, // important
+        },
+      },
+
+      // ✅ Shape response
+      {
+        $project: {
+          id: '$_id',
+          name: { $concat: ['$firstName', ' ', '$lastName'] },
+          email: 1,
+          mobile: 1,
+          isActive: 1,
+          createdAt: 1,
+
+          // 👇 Profile fields (adjust as per schema)
+          bio: '$profile.bio',
+          vehicles: '$profile.vehicles',
+          availability: '$profile.availability',
+          suburbs: '$profile.suburbs',
+          documents: '$profile.documents',
+          rating: '$profile.rating',
+          isVerified: '$profile.isVerified',
+          serviceAreas: '$profile.serviceAreas',
+          testLocations: '$profile.testLocations',
+        },
+      },
+    ]);
+
+    if (!result.length) {
+      throw new NotFoundException('Instructor not found');
+    }
+
+    return result[0];
   }
-
-  const result = await this.instructorModel.aggregate([
-    {
-      $match: {
-        _id: new Types.ObjectId(id),
-      },
-    },
-
-    // 🔗 Join instructorprofiles
-    {
-      $lookup: {
-        from: 'instructorprofiles', // collection name
-        localField: '_id',
-        foreignField: 'userId',
-        as: 'profile',
-      },
-    },
-
-    {
-      $unwind: {
-        path: '$profile',
-        preserveNullAndEmptyArrays: true, // important
-      },
-    },
-
-    // ✅ Shape response
-    {
-      $project: {
-        id: '$_id',
-        name: { $concat: ['$firstName', ' ', '$lastName'] },
-        email: 1,
-        mobile: 1,
-        isActive: 1,
-        createdAt: 1,
-
-        // 👇 Profile fields (adjust as per schema)
-        bio: '$profile.bio',
-        vehicles: '$profile.vehicles',
-        availability: '$profile.availability',
-        suburbs: '$profile.suburbs',
-        documents: '$profile.documents',
-        rating: '$profile.rating',
-         isVerified: '$profile.isVerified',
-         serviceAreas: '$profile.serviceAreas',
-         testLocations: '$profile.testLocations',
-      },
-    },
-  ]);
-
-  if (!result.length) {
-    throw new NotFoundException('Instructor not found');
-  }
-
-  return result[0];
-}
 
   // 2️⃣ Orders
   async getOrders({
@@ -215,18 +215,18 @@ export class InstructorsService {
     search?: string;
   }) {
 
-   
-  const instructor = await this.instructorProfileModel
-  .findOne({ userId: new Types.ObjectId(instructorId) }).select('_id')
-  .lean<{ _id: Types.ObjectId }>();
+
+    const instructor = await this.instructorProfileModel
+      .findOne({ userId: new Types.ObjectId(instructorId) }).select('_id')
+      .lean<{ _id: Types.ObjectId }>();
 
 
 
     if (!instructor) throw new NotFoundException("Instructor not found");
-    
+
     const query: any = {
       instructorId: new Types.ObjectId(instructor._id),
-     // isDeleted: false,
+      // isDeleted: false,
     };
 
     if (status) query.status = status;
@@ -239,17 +239,17 @@ export class InstructorsService {
     // }
     if (search) {
       const orConditions: any[] = [];
-    
+
       // ✅ If search is a valid ObjectId → match directly
       if (Types.ObjectId.isValid(search)) {
         orConditions.push({ _id: new Types.ObjectId(search) });
       }
-    
+
       // ✅ Always allow name search
       orConditions.push({
         "learner.name": { $regex: search, $options: "i" },
       });
-    
+
       query.$or = orConditions;
     }
 
@@ -292,15 +292,15 @@ export class InstructorsService {
     const query: any = {
       instructorId: new Types.ObjectId(instructorId),
     };
-  
+
     if (status) query.status = status;
-  
+
     if (search) {
       query.$or = [
         { orderId: new RegExp(search, "i") },
       ];
     }
-  
+
     const [data, total] = await Promise.all([
       this.privateOrderModel
         .find(query)
@@ -312,10 +312,10 @@ export class InstructorsService {
           select: "firstName lastName email mobileNumber",
         })
         .lean(),
-    
+
       this.privateOrderModel.countDocuments(query),
     ]);
-  
+
     return {
       data,
       meta: {
@@ -326,7 +326,7 @@ export class InstructorsService {
       },
     };
   }
-  
+
 
   // 3️⃣ Private Learners
   async getPrivateLearners({
@@ -413,23 +413,23 @@ export class InstructorsService {
   ) {
     // ✅ Remove duplicate types (important)
     const uniqueVehiclesMap = new Map();
-  
+
     for (const vehicle of dto.vehicles) {
       uniqueVehiclesMap.set(vehicle.type, vehicle); // overwrite duplicates
     }
-  
+
     const vehicles = Array.from(uniqueVehiclesMap.values());
-  
+
     const updated = await this.instructorModel.findByIdAndUpdate(
       instructorId,
       { $set: { vehicles } },
       { new: true },
     );
-  
+
     if (!updated) {
       throw new NotFoundException('Instructor not found');
     }
-  
+
     return {
       message: 'Vehicles updated successfully',
       data: updated,
@@ -438,799 +438,804 @@ export class InstructorsService {
 
 
   async getWalletTransactions(
-  field: 'learnerId' | 'userId',
-  userId: string,
-  dto: AdminQueryDto,
-) {
-  const page = Math.max(Number(dto.page) || 1, 1);
-  const limit = Math.max(Number(dto.limit) || 10, 1);
-  const skip = (page - 1) * limit;
+    field: 'learnerId' | 'userId',
+    userId: string,
+    dto: AdminQueryDto,
+  ) {
+    const page = Math.max(Number(dto.page) || 1, 1);
+    const limit = Math.max(Number(dto.limit) || 10, 1);
+    const skip = (page - 1) * limit;
 
-  const filter: any = {
-    [field]: new Types.ObjectId(userId),
-  };
+    const filter: any = {
+      [field]: new Types.ObjectId(userId),
+    };
 
-  if (dto.type) filter.type = dto.type;
+    if (dto.type) filter.type = dto.type;
 
-  // ✅ Date range
-  if (dto.startDate || dto.endDate) {
-    filter.createdAt = {};
-    if (dto.startDate) filter.createdAt.$gte = new Date(dto.startDate);
-    if (dto.endDate) filter.createdAt.$lte = new Date(dto.endDate);
-  }
+    // ✅ Date range
+    if (dto.startDate || dto.endDate) {
+      filter.createdAt = {};
+      if (dto.startDate) filter.createdAt.$gte = new Date(dto.startDate);
+      if (dto.endDate) filter.createdAt.$lte = new Date(dto.endDate);
+    }
 
-  const [data, total] = await Promise.all([
-    this.walletModel
-      .find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
+    const [data, total] = await Promise.all([
+      this.walletModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
 
-    this.walletModel.countDocuments(filter),
-  ]);
+      this.walletModel.countDocuments(filter),
+    ]);
 
-  return {
-    data,
-    meta: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
-}
-
-// async getAllNoShowRequests({
-//   page,
-//   limit,
-//   status,
-//   requestedBy,
-//   search,
-//   sortBy,
-//   sortOrder,
-//   startDate,
-//   endDate,
-// }: {
-//   page: number;
-//   limit: number;
-//   status?: string;
-//   requestedBy?: string;
-//   search?: string;
-//   sortBy?: string;
-//   sortOrder?: 'asc' | 'desc';
-//   startDate?: string;
-//   endDate?: string;
-// }) {
-//   const query: any = {};
-
-//   /* ===============================
-//      🎯 FILTERS
-//   =============================== */
-//   if (status) query.status = status;
-//   if (requestedBy) query.requestedBy = requestedBy;
-
-//   /* ===============================
-//      📅 DATE RANGE
-//   =============================== */
-//   if (startDate || endDate) {
-//     query.createdAt = {};
-//     if (startDate) query.createdAt.$gte = new Date(startDate);
-//     if (endDate) query.createdAt.$lte = new Date(endDate);
-//   }
-
-//   /* ===============================
-//      🔍 SEARCH
-//   =============================== */
-//   let matchStage: any = {};
-
-//   if (search) {
-//     const regex = new RegExp(search, 'i');
-
-//     matchStage = {
-//       $or: [
-//         { 'learner.firstName': regex },
-//         { 'learner.lastName': regex },
-//         { 'learner.email': regex },
-//         { 'instructor.firstName': regex },
-//         { 'instructor.lastName': regex },
-//         { 'instructor.email': regex },
-//       ],
-//     };
-//   }
-
-//   /* ===============================
-//      ⚙️ SAFE SORT (FIXED ✅)
-//   =============================== */
-
-//   const allowedSortFields = [
-//     'createdAt',
-//     'status',
-//     'requestedBy',
-//     'learner.firstName',
-//     'instructor.firstName',
-//   ] as const;
-  
-//   type SortField = (typeof allowedSortFields)[number];
-  
-//   const safeSortBy: SortField = allowedSortFields.includes(sortBy as SortField)
-//     ? (sortBy as SortField)
-//     : 'createdAt';
-  
-//   const safeSortOrder: 1 | -1 = sortOrder === 'asc' ? 1 : -1;
-  
-//   const sort: Record<string, 1 | -1> = {
-//     [safeSortBy]: safeSortOrder,
-//   };
-
-//   /* ===============================
-//      🚀 PIPELINE
-//   =============================== */
-
-//   const pipeline: any[] = [
-//     {
-//       $lookup: {
-//         from: 'orders',
-//         localField: 'bookingId',
-//         foreignField: '_id',
-//         as: 'order',
-//       },
-//     },
-//     {
-//       $unwind: {
-//         path: '$order',
-//         preserveNullAndEmptyArrays: true,
-//       },
-//     },
-  
-//     // ✅ SLOT EXTRACTION (CRITICAL)
-//     {
-//       $addFields: {
-//         slot: {
-//           $arrayElemAt: [
-//             {
-//               $filter: {
-//                 input: '$order.bookedSlots',
-//                 as: 'slot',
-//                 cond: {
-//                   $eq: [
-//                     { $toString: '$$slot._id' },
-//                     { $toString: '$slotId' },
-//                   ],
-//                 },
-//               },
-//             },
-//             0,
-//           ],
-//         },
-//       },
-//     },
-  
-//     {
-//       $lookup: {
-//         from: 'learners',
-//         localField: 'order.learnerId',
-//         foreignField: '_id',
-//         as: 'learner',
-//       },
-//     },
-//     {
-//       $unwind: {
-//         path: '$learner',
-//         preserveNullAndEmptyArrays: true,
-//       },
-//     },
-  
-//     {
-//       $lookup: {
-//         from: 'instructorprofiles',
-//         localField: 'order.instructorId',
-//         foreignField: '_id',
-//         as: 'instructorProfile',
-//       },
-//     },
-//     {
-//       $unwind: {
-//         path: '$instructorProfile',
-//         preserveNullAndEmptyArrays: true,
-//       },
-//     },
-  
-//     {
-//       $lookup: {
-//         from: 'users',
-//         localField: 'instructorProfile.userId',
-//         foreignField: '_id',
-//         as: 'instructor',
-//       },
-//     },
-//     {
-//       $unwind: {
-//         path: '$instructor',
-//         preserveNullAndEmptyArrays: true,
-//       },
-//     },
-  
-//     ...(search ? [{ $match: matchStage }] : []),
-  
-//     { $match: query },
-  
-//     { $sort: sort },
-  
-//     // ✅ FINAL PROJECTION
-//     {
-//       $project: {
-//         _id: 1,
-//         status: 1,
-//         requestedBy: 1,
-//         createdAt: 1,
-  
-//         slotDate: '$slot.date',
-//         startTime: '$slot.startTime',
-  
-//         reasonType: '$slot.actionMeta.reasonType',
-//         comment: '$slot.actionMeta.comment',
-  
-//         learnerName: {
-//           $concat: ['$learner.firstName', ' ', '$learner.lastName'],
-//         },
-  
-//         instructorName: {
-//           $concat: ['$instructor.firstName', ' ', '$instructor.lastName'],
-//         },
-//       },
-//     },
-  
-//     {
-//       $facet: {
-//         data: [
-//           { $skip: (page - 1) * limit },
-//           { $limit: limit },
-//         ],
-//         total: [{ $count: 'count' }],
-//       },
-//     },
-//   ];
-
-//   const result = await this.noShowRequestModel.aggregate(pipeline);
-
-//   const data = result[0]?.data || [];
-//   const total = result[0]?.total[0]?.count || 0;
-
-//   return {
-//     data,
-//     pagination: {
-//       total,
-//       page,
-//       limit,
-//       totalPages: Math.ceil(total / limit),
-//     },
-//   };
-// }
-async getAllNoShowRequests({
-  page,
-  limit,
-  status,
-  requestedBy,
-  search,
-  sortBy,
-  sortOrder,
-  startDate,
-  endDate,
-}: {
-  page: number;
-  limit: number;
-  status?: string;
-  requestedBy?: string;
-  search?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  startDate?: string;
-  endDate?: string;
-}) {
-  const query: any = {};
-
-  /* ===============================
-     🎯 FILTERS
-  =============================== */
-  if (status) query.status = status;
-  if (requestedBy) query.requestedBy = requestedBy;
-
-  /* ===============================
-     📅 DATE RANGE
-  =============================== */
-  if (startDate || endDate) {
-    query.createdAt = {};
-    if (startDate) query.createdAt.$gte = new Date(startDate);
-    if (endDate) query.createdAt.$lte = new Date(endDate);
-  }
-
-  /* ===============================
-     🔍 SEARCH
-  =============================== */
-  let matchStage: any = {};
-
-  if (search) {
-    const regex = new RegExp(search, 'i');
-
-    matchStage = {
-      $or: [
-        { 'learner.firstName': regex },
-        { 'learner.lastName': regex },
-        { 'learner.name': regex }, // ✅ fallback
-        { 'learner.email': regex },
-        { 'instructor.firstName': regex },
-        { 'instructor.lastName': regex },
-        { 'instructor.email': regex },
-      ],
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
-  /* ===============================
-     ⚙️ SAFE SORT
-  =============================== */
+  // async getAllNoShowRequests({
+  //   page,
+  //   limit,
+  //   status,
+  //   requestedBy,
+  //   search,
+  //   sortBy,
+  //   sortOrder,
+  //   startDate,
+  //   endDate,
+  // }: {
+  //   page: number;
+  //   limit: number;
+  //   status?: string;
+  //   requestedBy?: string;
+  //   search?: string;
+  //   sortBy?: string;
+  //   sortOrder?: 'asc' | 'desc';
+  //   startDate?: string;
+  //   endDate?: string;
+  // }) {
+  //   const query: any = {};
 
-  const allowedSortFields = [
-    'createdAt',
-    'status',
-    'requestedBy',
-    'learner.firstName',
-    'instructor.firstName',
-  ] as const;
+  //   /* ===============================
+  //      🎯 FILTERS
+  //   =============================== */
+  //   if (status) query.status = status;
+  //   if (requestedBy) query.requestedBy = requestedBy;
 
-  type SortField = (typeof allowedSortFields)[number];
+  //   /* ===============================
+  //      📅 DATE RANGE
+  //   =============================== */
+  //   if (startDate || endDate) {
+  //     query.createdAt = {};
+  //     if (startDate) query.createdAt.$gte = new Date(startDate);
+  //     if (endDate) query.createdAt.$lte = new Date(endDate);
+  //   }
 
-  const safeSortBy: SortField = allowedSortFields.includes(sortBy as SortField)
-    ? (sortBy as SortField)
-    : 'createdAt';
+  //   /* ===============================
+  //      🔍 SEARCH
+  //   =============================== */
+  //   let matchStage: any = {};
 
-  const safeSortOrder: 1 | -1 = sortOrder === 'asc' ? 1 : -1;
+  //   if (search) {
+  //     const regex = new RegExp(search, 'i');
 
-  const sort: Record<string, 1 | -1> = {
-    [safeSortBy]: safeSortOrder,
-  };
+  //     matchStage = {
+  //       $or: [
+  //         { 'learner.firstName': regex },
+  //         { 'learner.lastName': regex },
+  //         { 'learner.email': regex },
+  //         { 'instructor.firstName': regex },
+  //         { 'instructor.lastName': regex },
+  //         { 'instructor.email': regex },
+  //       ],
+  //     };
+  //   }
 
-  /* ===============================
-     🚀 PIPELINE
-  =============================== */
+  //   /* ===============================
+  //      ⚙️ SAFE SORT (FIXED ✅)
+  //   =============================== */
 
-  const pipeline: any[] = [
+  //   const allowedSortFields = [
+  //     'createdAt',
+  //     'status',
+  //     'requestedBy',
+  //     'learner.firstName',
+  //     'instructor.firstName',
+  //   ] as const;
+
+  //   type SortField = (typeof allowedSortFields)[number];
+
+  //   const safeSortBy: SortField = allowedSortFields.includes(sortBy as SortField)
+  //     ? (sortBy as SortField)
+  //     : 'createdAt';
+
+  //   const safeSortOrder: 1 | -1 = sortOrder === 'asc' ? 1 : -1;
+
+  //   const sort: Record<string, 1 | -1> = {
+  //     [safeSortBy]: safeSortOrder,
+  //   };
+
+  //   /* ===============================
+  //      🚀 PIPELINE
+  //   =============================== */
+
+  //   const pipeline: any[] = [
+  //     {
+  //       $lookup: {
+  //         from: 'orders',
+  //         localField: 'bookingId',
+  //         foreignField: '_id',
+  //         as: 'order',
+  //       },
+  //     },
+  //     {
+  //       $unwind: {
+  //         path: '$order',
+  //         preserveNullAndEmptyArrays: true,
+  //       },
+  //     },
+
+  //     // ✅ SLOT EXTRACTION (CRITICAL)
+  //     {
+  //       $addFields: {
+  //         slot: {
+  //           $arrayElemAt: [
+  //             {
+  //               $filter: {
+  //                 input: '$order.bookedSlots',
+  //                 as: 'slot',
+  //                 cond: {
+  //                   $eq: [
+  //                     { $toString: '$$slot._id' },
+  //                     { $toString: '$slotId' },
+  //                   ],
+  //                 },
+  //               },
+  //             },
+  //             0,
+  //           ],
+  //         },
+  //       },
+  //     },
+
+  //     {
+  //       $lookup: {
+  //         from: 'learners',
+  //         localField: 'order.learnerId',
+  //         foreignField: '_id',
+  //         as: 'learner',
+  //       },
+  //     },
+  //     {
+  //       $unwind: {
+  //         path: '$learner',
+  //         preserveNullAndEmptyArrays: true,
+  //       },
+  //     },
+
+  //     {
+  //       $lookup: {
+  //         from: 'instructorprofiles',
+  //         localField: 'order.instructorId',
+  //         foreignField: '_id',
+  //         as: 'instructorProfile',
+  //       },
+  //     },
+  //     {
+  //       $unwind: {
+  //         path: '$instructorProfile',
+  //         preserveNullAndEmptyArrays: true,
+  //       },
+  //     },
+
+  //     {
+  //       $lookup: {
+  //         from: 'users',
+  //         localField: 'instructorProfile.userId',
+  //         foreignField: '_id',
+  //         as: 'instructor',
+  //       },
+  //     },
+  //     {
+  //       $unwind: {
+  //         path: '$instructor',
+  //         preserveNullAndEmptyArrays: true,
+  //       },
+  //     },
+
+  //     ...(search ? [{ $match: matchStage }] : []),
+
+  //     { $match: query },
+
+  //     { $sort: sort },
+
+  //     // ✅ FINAL PROJECTION
+  //     {
+  //       $project: {
+  //         _id: 1,
+  //         status: 1,
+  //         requestedBy: 1,
+  //         createdAt: 1,
+
+  //         slotDate: '$slot.date',
+  //         startTime: '$slot.startTime',
+
+  //         reasonType: '$slot.actionMeta.reasonType',
+  //         comment: '$slot.actionMeta.comment',
+
+  //         learnerName: {
+  //           $concat: ['$learner.firstName', ' ', '$learner.lastName'],
+  //         },
+
+  //         instructorName: {
+  //           $concat: ['$instructor.firstName', ' ', '$instructor.lastName'],
+  //         },
+  //       },
+  //     },
+
+  //     {
+  //       $facet: {
+  //         data: [
+  //           { $skip: (page - 1) * limit },
+  //           { $limit: limit },
+  //         ],
+  //         total: [{ $count: 'count' }],
+  //       },
+  //     },
+  //   ];
+
+  //   const result = await this.noShowRequestModel.aggregate(pipeline);
+
+  //   const data = result[0]?.data || [];
+  //   const total = result[0]?.total[0]?.count || 0;
+
+  //   return {
+  //     data,
+  //     pagination: {
+  //       total,
+  //       page,
+  //       limit,
+  //       totalPages: Math.ceil(total / limit),
+  //     },
+  //   };
+  // }
+  async getAllNoShowRequests({
+    page,
+    limit,
+    status,
+    requestedBy,
+    search,
+    sortBy,
+    sortOrder,
+    startDate,
+    endDate,
+  }: {
+    page: number;
+    limit: number;
+    status?: string;
+    requestedBy?: string;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const query: any = {};
+
     /* ===============================
-       ORDER JOIN
+       🎯 FILTERS
     =============================== */
-    {
-      $lookup: {
-        from: 'orders',
-        localField: 'bookingId',
-        foreignField: '_id',
-        as: 'order',
-      },
-    },
-    {
-      $unwind: {
-        path: '$order',
-        preserveNullAndEmptyArrays: true,
-      },
-    },
+    if (status) query.status = status;
+    if (requestedBy) query.requestedBy = requestedBy;
 
     /* ===============================
-       SLOT EXTRACTION
+       📅 DATE RANGE
     =============================== */
-    {
-      $addFields: {
-        slot: {
-          $arrayElemAt: [
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    /* ===============================
+       🔍 SEARCH
+    =============================== */
+    let matchStage: any = {};
+
+    if (search) {
+      const regex = new RegExp(search, 'i');
+
+      matchStage = {
+        $or: [
+          { 'learner.firstName': regex },
+          { 'learner.lastName': regex },
+          { 'learner.name': regex }, // ✅ fallback
+          { 'learner.email': regex },
+          { 'instructor.firstName': regex },
+          { 'instructor.lastName': regex },
+          { 'instructor.email': regex },
+        ],
+      };
+    }
+
+    /* ===============================
+       ⚙️ SAFE SORT
+    =============================== */
+
+    const allowedSortFields = [
+      'createdAt',
+      'status',
+      'requestedBy',
+      'learner.firstName',
+      'instructor.firstName',
+    ] as const;
+
+    type SortField = (typeof allowedSortFields)[number];
+
+    const safeSortBy: SortField = allowedSortFields.includes(sortBy as SortField)
+      ? (sortBy as SortField)
+      : 'createdAt';
+
+    const safeSortOrder: 1 | -1 = sortOrder === 'asc' ? 1 : -1;
+
+    const sort: Record<string, 1 | -1> = {
+      [safeSortBy]: safeSortOrder,
+    };
+
+    /* ===============================
+       🚀 PIPELINE
+    =============================== */
+
+    const pipeline: any[] = [
+      /* ===============================
+         ORDER JOIN
+      =============================== */
+      {
+        $lookup: {
+          from: 'orders',
+          localField: 'bookingId',
+          foreignField: '_id',
+          as: 'order',
+        },
+      },
+      {
+        $unwind: {
+          path: '$order',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      /* ===============================
+         SLOT EXTRACTION
+      =============================== */
+      {
+        $addFields: {
+          slot: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: '$order.bookedSlots',
+                  as: 'slot',
+                  cond: {
+                    $eq: [
+                      { $toString: '$$slot._id' },
+                      { $toString: '$slotId' },
+                    ],
+                  },
+                },
+              },
+              0,
+            ],
+          },
+        },
+      },
+
+      /* ===============================
+         ✅ FIXED LEARNER LOOKUP (KEY FIX)
+      =============================== */
+      {
+        $lookup: {
+          from: 'learners',
+          let: { learnerId: '$order.learnerId' },
+          pipeline: [
             {
-              $filter: {
-                input: '$order.bookedSlots',
-                as: 'slot',
-                cond: {
+              $match: {
+                $expr: {
                   $eq: [
-                    { $toString: '$$slot._id' },
-                    { $toString: '$slotId' },
+                    '$_id',
+                    {
+                      $cond: [
+                        { $eq: [{ $type: '$$learnerId' }, 'string'] },
+                        { $toObjectId: '$$learnerId' },
+                        '$$learnerId',
+                      ],
+                    },
                   ],
                 },
               },
             },
-            0,
           ],
+          as: 'learner',
         },
       },
-    },
+      {
+        $unwind: {
+          path: '$learner',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
 
-    /* ===============================
-       ✅ FIXED LEARNER LOOKUP (KEY FIX)
-    =============================== */
-    {
-      $lookup: {
-        from: 'learners',
-        let: { learnerId: '$order.learnerId' },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $eq: [
-                  '$_id',
-                  {
-                    $cond: [
-                      { $eq: [{ $type: '$$learnerId' }, 'string'] },
-                      { $toObjectId: '$$learnerId' },
-                      '$$learnerId',
-                    ],
-                  },
-                ],
-              },
-            },
+      /* ===============================
+         INSTRUCTOR LOOKUP
+      =============================== */
+      {
+        $lookup: {
+          from: 'instructorprofiles',
+          localField: 'order.instructorId',
+          foreignField: '_id',
+          as: 'instructorProfile',
+        },
+      },
+      {
+        $unwind: {
+          path: '$instructorProfile',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'instructorProfile.userId',
+          foreignField: '_id',
+          as: 'instructor',
+        },
+      },
+      {
+        $unwind: {
+          path: '$instructor',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      ...(search ? [{ $match: matchStage }] : []),
+
+      { $match: query },
+
+      { $sort: sort },
+
+      /* ===============================
+         FINAL PROJECTION
+      =============================== */
+      {
+        $project: {
+          _id: 1,
+          status: 1,
+          requestedBy: 1,
+          createdAt: 1,
+          adminRemark: 1,
+
+          slotDate: '$slot.date',
+          startTime: '$slot.startTime',
+          endTime: '$slot.endTime',
+
+          reasonType: '$slot.actionMeta.reasonType',
+          attachment: '$slot.actionMeta.attachment',
+          comment: '$slot.actionMeta.comment',
+
+
+          /* ✅ SAFE LEARNER NAME */
+          learnerName: {
+            $cond: [
+              { $and: ['$learner.firstName', '$learner.lastName'] },
+              { $concat: ['$learner.firstName', ' ', '$learner.lastName'] },
+              { $ifNull: ['$learner.name', 'N/A'] },
+            ],
           },
-        ],
-        as: 'learner',
+
+          instructorName: {
+            $concat: ['$instructor.firstName', ' ', '$instructor.lastName'],
+          },
+        },
       },
-    },
-    {
-      $unwind: {
-        path: '$learner',
-        preserveNullAndEmptyArrays: true,
-      },
-    },
 
-    /* ===============================
-       INSTRUCTOR LOOKUP
-    =============================== */
-    {
-      $lookup: {
-        from: 'instructorprofiles',
-        localField: 'order.instructorId',
-        foreignField: '_id',
-        as: 'instructorProfile',
-      },
-    },
-    {
-      $unwind: {
-        path: '$instructorProfile',
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-    {
-      $lookup: {
-        from: 'users',
-        localField: 'instructorProfile.userId',
-        foreignField: '_id',
-        as: 'instructor',
-      },
-    },
-    {
-      $unwind: {
-        path: '$instructor',
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-
-    ...(search ? [{ $match: matchStage }] : []),
-
-    { $match: query },
-
-    { $sort: sort },
-
-    /* ===============================
-       FINAL PROJECTION
-    =============================== */
-    {
-      $project: {
-        _id: 1,
-        status: 1,
-        requestedBy: 1,
-        createdAt: 1,
-        adminRemark:1,
-
-        slotDate: '$slot.date',
-        startTime: '$slot.startTime',
-        endTime: '$slot.endTime',
-
-        reasonType: '$slot.actionMeta.reasonType',
-        attachment: '$slot.actionMeta.attachment',
-        comment: '$slot.actionMeta.comment',
-  
-
-        /* ✅ SAFE LEARNER NAME */
-        learnerName: {
-          $cond: [
-            { $and: ['$learner.firstName', '$learner.lastName'] },
-            { $concat: ['$learner.firstName', ' ', '$learner.lastName'] },
-            { $ifNull: ['$learner.name', 'N/A'] },
+      {
+        $facet: {
+          data: [
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
           ],
-        },
-
-        instructorName: {
-          $concat: ['$instructor.firstName', ' ', '$instructor.lastName'],
+          total: [{ $count: 'count' }],
         },
       },
-    },
+    ];
 
-    {
-      $facet: {
-        data: [
-          { $skip: (page - 1) * limit },
-          { $limit: limit },
-        ],
-        total: [{ $count: 'count' }],
+    const result = await this.noShowRequestModel.aggregate(pipeline);
+
+    const data = result[0]?.data || [];
+    const total = result[0]?.total[0]?.count || 0;
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
-    },
-  ];
-
-  const result = await this.noShowRequestModel.aggregate(pipeline);
-
-  const data = result[0]?.data || [];
-  const total = result[0]?.total[0]?.count || 0;
-
-  return {
-    data,
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
-}
-
-
-
-async rejectNoShowSlot(
-  noShowRequestId: string,
-  adminId: string,
-  remark: string,
-) {
-  const request = await this.noShowRequestModel.findById(noShowRequestId);
-
-  if (!request) {
-    throw new BadRequestException('NoShow request not found');
+    };
   }
 
-  request.status = NoShowStatus.REJECTED;
-  request.adminId = new Types.ObjectId(adminId);
-  request.adminRemark = remark;
-
-  await request.save();
-
-  return { success: true };
-}
-
-async approveNoShowSlot(
-  noShowRequestId: string,
-  adminId: string,
-  decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER',
-  remark:string
-) {
-  const request = await this.noShowRequestModel.findById(noShowRequestId);
-
-  if (!request) {
-    throw new BadRequestException('Request not found');
-  }
-
-  if (request.status !== 'PENDING') {
-    throw new BadRequestException('Request already processed');
-  }
-
-  const order = await this.orderModel.findById(
-    new Types.ObjectId(request.bookingId),
-  );
-
-  if (!order) {
-    throw new BadRequestException('Order not found');
-  }
-
-  const slot = order.bookedSlots.id(
-    new Types.ObjectId(request.slotId),
-  );
-
-  if (!slot) {
-    throw new BadRequestException('Slot not found');
-  }
-
-  // 🔥 IMPORTANT FIX
-  if (slot.status !== 'NOSHOW_REQUESTED') {
-    throw new BadRequestException(
-      `Invalid slot status: ${slot.status}`,
-    );
-  }
-
-  const hours = calculateSlotDurationInHours(
-    normalizeTime(slot.startTime),
-    normalizeTime(slot.endTime),
-  );
-
-  /* ===============================
-     🎯 DECISION
-  =============================== */
-
-  if (decision === 'PAY_INSTRUCTOR') {
-    await this.handleInstructorPayout(order, slot, hours);
-    slot.status = 'NOSHOW';
-    request.decision = NoShowDecision.PAY_INSTRUCTOR;
-  } else {
-    await this.handleLearnerRefund(order, slot, hours);
-    slot.status = 'CANCELLED';
-    request.decision = NoShowDecision.REFUND_LEARNER
-  }
-
-  /* ===============================
-     ✅ UPDATE REQUEST
-  =============================== */
-
-  request.status = NoShowStatus.APPROVED
-  request.adminId = new Types.ObjectId(adminId);
-  request.adminRemark = remark;
-
-  await request.save();
-  await order.save();
-
-  return {
-    success: true,
-    message: 'No-show request approved',
-  };
-}
-
-async handleInstructorPayout(order, slot, hours) {
-  const grossAmount = hours * order.pricePerHour;
-  const pricePerHour = order.pricePerHour;
-
-  // ✅ Apply FIFO credit consumption
-  const { discountCommission } = await this.handleCreditConsumption.call(
-    this,
-    order.learnerId,
-    hours,
-    pricePerHour,
-    'CONSUME',
-  );
-
-  const platformCommission = grossAmount * 0.17;
-  const instructorEarning = grossAmount - platformCommission - discountCommission;
-
-  // 💳 Create instructor transaction (report history)
-  const txn = await this.instructorTransactionModel.create({
-    orderId: order._id,
-    slotId: slot._id,
-    learnerId: order.learnerId,
-    instructorId: order.instructorId,
-    type: slot.type,
-    hours,
-    pricePerHour,
-    grossAmount,
-    platformCommission,
-    discountCommission,
-    instructorEarning,
-    payoutStatus: 'PAID',
-    payoutDate: new Date(),
-  });
-
-  // 💰 Update instructor wallet + ledger
-  const instructorProfile = await this.instructorProfileModel.findById(order.instructorId);
-  const instructor = await this.instructorModel.findByIdAndUpdate(
-    instructorProfile?.userId,
-    { $inc: { walletBalance: instructorEarning } },
-    { new: true },
-  );
-
-  await this.walletModel.create({
-    userId: instructor?._id,
-    role: 'instructor',
-    type: 'CREDIT',
-    amount: instructorEarning,
-    balanceAfter: instructor?.walletBalance,
-    source: 'NOSHOW',
-    referenceEntityId: txn._id,
-  });
-
-  // ⏱️ Update order hours
-  order.usedHours += hours;
-  order.remainingHours -= hours;
-  if (order.remainingHours <= 0) order.scheduleStatus = 'FULLY_SCHEDULED';
-  await order.save();
-
-  return { success: true, instructorEarning };
-}
-
-async handleLearnerRefund(order, slot, hours) {
-  const pricePerHour = order.pricePerHour;
-
-  // ✅ Apply FIFO credit restoration
-  const { totalAmount } = await handleCreditConsumption.call(
-    this,
-    order.learnerId,
-    hours,
-    pricePerHour,
-    'RESTORE',
-  );
-
-  const wallet = await this.learnerModel.findById(order.learnerId);
-  wallet.walletBalance += totalAmount;
-  await wallet.save();
-
-  await this.walletModel.create({
-    learnerId: order.learnerId,
-    amount: totalAmount,
-    type: 'CREDIT',
-    source: 'NOSHOW_REFUND',
-    description: `Refund for order ${order._id}, slot ${slot._id}`,
-    balanceAfter: wallet.walletBalance,
-  });
-
-  // ⏱️ Restore order hours
-  order.usedHours -= hours;
-  order.remainingHours += hours;
-  if (order.remainingHours > 0) order.scheduleStatus = 'PARTIALLY_SCHEDULED';
-  await order.save();
-
-  return { success: true, refundedAmount: totalAmount };
-}
 
 
-/**
- * Unified FIFO Credit Consumption Utility
- * Handles both payout and refund flows consistently.
- *
- * @param learnerId - The learner whose credits are being consumed/restored
- * @param hours - Number of lesson hours (or test units) to process
- * @param pricePerHour - Lesson price per hour (or test price)
- * @param mode - 'CONSUME' for instructor payout, 'RESTORE' for learner refund
- * @returns { totalAmount, discountCommission, creditsUsed }
- */
-async handleCreditConsumption(
-  learnerId: string,
-  hours: number,
-  pricePerHour: number,
-  mode: 'CONSUME' | 'RESTORE',
-) {
-  const credits = await this.walletModel.find({
-    learnerId,
-    type: 'CREDIT',
-  }).sort({ createdAt: 1 }); // FIFO
+  async rejectNoShowSlot(
+    noShowRequestId: string,
+    adminId: string,
+    remark: string,
+  ) {
+    const request = await this.noShowRequestModel.findById(noShowRequestId);
 
-  let hoursRemaining = hours;
-  let totalAmount = 0;
-  let discountCommission = 0;
-  const creditsUsed: any[] = [];
-
-  for (const credit of credits) {
-    if (hoursRemaining <= 0) break;
-
-    const availableHours =
-      mode === 'CONSUME' ? credit.remainingHours : credit.consumedHours;
-
-    if (availableHours <= 0) continue;
-
-    const appliedHours = Math.min(hoursRemaining, availableHours);
-    hoursRemaining -= appliedHours;
-
-    const discountRate = credit.discountRate || 0;
-    const grossValue = appliedHours * pricePerHour;
-    const discountedValue = grossValue * (1 - discountRate);
-
-    if (mode === 'CONSUME') {
-      discountCommission += grossValue * discountRate;
-      credit.remainingHours -= appliedHours;
-      credit.consumedHours += appliedHours;
-    } else {
-      totalAmount += discountedValue;
-      credit.remainingHours += appliedHours;
-      credit.consumedHours -= appliedHours;
+    if (!request) {
+      throw new BadRequestException('NoShow request not found');
     }
 
-    await credit.save();
+    request.status = NoShowStatus.REJECTED;
+    request.adminId = new Types.ObjectId(adminId);
+    request.adminRemark = remark;
 
-    creditsUsed.push({
-      creditId: credit._id,
-      appliedHours,
-      discountRate,
-    });
+    await request.save();
+
+    return { success: true };
   }
 
-  return {
-    totalAmount,
-    discountCommission,
-    creditsUsed,
-  };
-}
+  async approveNoShowSlot(
+    noShowRequestId: string,
+    adminId: string,
+    decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER',
+    remark: string
+  ) {
+    const request = await this.noShowRequestModel.findById(noShowRequestId);
+
+    if (!request) {
+      throw new BadRequestException('Request not found');
+    }
+
+    if (request.status !== 'PENDING') {
+      throw new BadRequestException('Request already processed');
+    }
+
+    const order = await this.orderModel.findById(
+      new Types.ObjectId(request.bookingId),
+    );
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    const slot = order.bookedSlots.id(
+      new Types.ObjectId(request.slotId),
+    );
+
+    if (!slot) {
+      throw new BadRequestException('Slot not found');
+    }
+
+    // 🔥 IMPORTANT FIX
+    if (slot.status !== 'NOSHOW_REQUESTED') {
+      throw new BadRequestException(
+        `Invalid slot status: ${slot.status}`,
+      );
+    }
+
+    const hours = calculateSlotDurationInHours(
+      normalizeTime(slot.startTime),
+      normalizeTime(slot.endTime),
+    );
+
+    /* ===============================
+       🎯 DECISION
+    =============================== */
+
+    if (decision === 'PAY_INSTRUCTOR') {
+      await this.handleInstructorPayout(order, slot, hours);
+      slot.status = 'NOSHOW';
+      request.decision = NoShowDecision.PAY_INSTRUCTOR;
+    } else {
+      await this.handleLearnerRefund(order, slot, hours);
+      slot.status = 'CANCELLED';
+      request.decision = NoShowDecision.REFUND_LEARNER
+    }
+
+    /* ===============================
+       ✅ UPDATE REQUEST
+    =============================== */
+
+    request.status = NoShowStatus.APPROVED
+    request.adminId = new Types.ObjectId(adminId);
+    request.adminRemark = remark;
+
+    await request.save();
+    await order.save();
+
+    return {
+      success: true,
+      message: 'No-show request approved',
+    };
+  }
+
+  async handleInstructorPayout(order, slot, hours) {
+    const grossAmount = hours * order.pricePerHour;
+    const pricePerHour = order.pricePerHour;
+
+    // ✅ Apply FIFO credit consumption
+    const { discountCommission } = await this.handleCreditConsumption.call(
+      this,
+      order.learnerId,
+      hours,
+      pricePerHour,
+      'CONSUME',
+    );
+
+    const platformCommission = grossAmount * 0.17;
+    const instructorEarning = grossAmount - platformCommission - discountCommission;
+
+    // 💳 Create instructor transaction (report history)
+    const txn = await this.instructorTransactionModel.create({
+      orderId: order._id,
+      slotId: slot._id,
+      learnerId: order.learnerId,
+      instructorId: order.instructorId,
+      type: slot.type,
+      hours,
+      pricePerHour,
+      grossAmount,
+      platformCommission,
+      discountCommission,
+      instructorEarning,
+      payoutStatus: 'PAID',
+      payoutDate: new Date(),
+    });
+
+    // 💰 Update instructor wallet + ledger
+    const instructorProfile = await this.instructorProfileModel.findById(order.instructorId);
+    const instructor = await this.instructorModel.findByIdAndUpdate(
+      instructorProfile?.userId,
+      { $inc: { walletBalance: instructorEarning } },
+      { new: true },
+    );
+
+    await this.walletModel.create({
+      userId: instructor?._id,
+      role: 'instructor',
+      type: 'CREDIT',
+      amount: instructorEarning,
+      balanceAfter: instructor?.walletBalance,
+      source: 'NOSHOW',
+      referenceEntityId: txn._id,
+    });
+
+    // ⏱️ Update order hours
+    order.usedHours += hours;
+    order.remainingHours -= hours;
+    if (order.remainingHours <= 0) order.scheduleStatus = 'FULLY_SCHEDULED';
+    await order.save();
+
+    return { success: true, instructorEarning };
+  }
+
+  async handleLearnerRefund(order, slot, hours) {
+    const pricePerHour = order.pricePerHour;
+
+    // ✅ Apply FIFO credit restoration
+    const { totalAmount } = await this.handleCreditConsumption.call(
+      this,
+      order.learnerId,
+      hours,
+      pricePerHour,
+      'RESTORE',
+    );
+
+    const wallet = await this.learnerModel.findById(order.learnerId);
+    // wallet?.walletBalance += totalAmount;
+    // await wallet.save();
+    if (wallet) {
+      wallet.walletBalance = (wallet.walletBalance ?? 0) + totalAmount;
+      await wallet.save();
+    }
+
+    await this.walletModel.create({
+      learnerId: order.learnerId,
+      amount: totalAmount,
+      type: 'CREDIT',
+      source: 'NOSHOW_REFUND',
+      description: `Refund for order ${order._id}, slot ${slot._id}`,
+      balanceAfter: wallet?.walletBalance,
+    });
+
+    // ⏱️ Restore order hours
+    order.usedHours -= hours;
+    order.remainingHours += hours;
+    if (order.remainingHours > 0) order.scheduleStatus = 'PARTIALLY_SCHEDULED';
+    await order.save();
+
+    return { success: true, refundedAmount: totalAmount };
+  }
+
+
+  /**
+   * Unified FIFO Credit Consumption Utility
+   * Handles both payout and refund flows consistently.
+   *
+   * @param learnerId - The learner whose credits are being consumed/restored
+   * @param hours - Number of lesson hours (or test units) to process
+   * @param pricePerHour - Lesson price per hour (or test price)
+   * @param mode - 'CONSUME' for instructor payout, 'RESTORE' for learner refund
+   * @returns { totalAmount, discountCommission, creditsUsed }
+   */
+  async handleCreditConsumption(
+    learnerId: string,
+    hours: number,
+    pricePerHour: number,
+    mode: 'CONSUME' | 'RESTORE',
+  ) {
+    const credits = await this.walletModel.find({
+      learnerId,
+      type: 'CREDIT',
+    }).sort({ createdAt: 1 }); // FIFO
+
+    let hoursRemaining = hours;
+    let totalAmount = 0;
+    let discountCommission = 0;
+    const creditsUsed: any[] = [];
+
+    for (const credit of credits) {
+      if (hoursRemaining <= 0) break;
+
+      const availableHours =
+        (mode === 'CONSUME' ? credit.remainingHours : credit.consumedHours) ?? 0;
+
+      if (availableHours <= 0) continue;
+
+      const appliedHours = Math.min(hoursRemaining, availableHours);
+      hoursRemaining -= appliedHours;
+
+      const discountRate = credit.discountRate || 0;
+      const grossValue = appliedHours * pricePerHour;
+      const discountedValue = grossValue * (1 - discountRate);
+
+      if (mode === 'CONSUME') {
+        discountCommission += grossValue * discountRate;
+
+        credit.remainingHours! -= appliedHours;
+        credit.consumedHours! += appliedHours;
+      } else {
+        totalAmount += discountedValue;
+        credit.remainingHours! -= appliedHours;
+        credit.consumedHours! += appliedHours;
+      }
+
+      await credit.save();
+
+      creditsUsed.push({
+        creditId: credit._id,
+        appliedHours,
+        discountRate,
+      });
+    }
+
+    return {
+      totalAmount,
+      discountCommission,
+      creditsUsed,
+    };
+  }
 
 
 }
