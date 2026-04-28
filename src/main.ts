@@ -13,6 +13,7 @@ async function bootstrap() {
   const allowedOrigins = [
     "https://devadmin.anylicence.com",
     "https://admin.anylicence.com", // add other domains if needed
+    "https://webadmin.anylicence.com.au",
     "http://localhost:3200",
     "https://devadmin.anylicence.com:3200",
      "http://localhost:3000"
