@@ -19,20 +19,35 @@ async function bootstrap() {
      "http://localhost:3000"
   ];
   
+  // app.enableCors({
+  //   origin: (origin, callback) => {
+  //     // allow requests with no origin (like mobile apps, Postman)
+  //     if (!origin) return callback(null, true);
+  
+  //     if (allowedOrigins.includes(origin)) {
+  //       callback(null, true);
+  //     } else {
+  //       callback(new Error("Not allowed by CORS"));
+  //     }
+  //   },
+  //   credentials: true,  // allow cookies or auth headers
+  //   methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+  //   allowedHeaders: "Content-Type, Authorization, Accept",
+  // });
+
   app.enableCors({
     origin: (origin, callback) => {
-      // allow requests with no origin (like mobile apps, Postman)
-      if (!origin) return callback(null, true);
-  
-      if (allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        callback(null, false);
       }
     },
-    credentials: true,  // allow cookies or auth headers
+    credentials: true,
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
     allowedHeaders: "Content-Type, Authorization, Accept",
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
   
   
