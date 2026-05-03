@@ -185,6 +185,7 @@ export class InstructorsService {
           email: 1,
           mobile: 1,
           isActive: 1,
+          isPublish: 1,
           createdAt: 1,
 
           // 👇 Profile fields (adjust as per schema)
