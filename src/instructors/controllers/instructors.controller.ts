@@ -29,6 +29,23 @@ export class InstructorsController {
     return this.instructorsService.setActive(id, false);
   }
 
+/**
+ * Is publish
+ * @param id 
+ * @returns 
+ */
+  @Roles("ADMIN")
+  @Patch(":id/publish")
+  publish(@Param("id") id: string) {
+    return this.instructorsService.setPublish(id, true);
+  }
+
+  @Roles("ADMIN")
+  @Patch(":id/unpublish")
+  unpublish(@Param("id") id: string) {
+    return this.instructorsService.setPublish(id, false);
+  }
+
 @Get()
   findAll(
     @Query("page") page = "1",

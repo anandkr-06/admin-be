@@ -9,40 +9,43 @@ class Vehicle {
     required: true,
     enum: ['auto', 'manual'],
   })
-  type: 'auto' | 'manual';
+  type!: 'auto' | 'manual';
 
   @Prop({ required: true })
-  image: string;
+  image!: string;
 }
 
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true })
-  firstName: string;
+  firstName!: string;
 
   @Prop({ required: true })
-  lastName: string;
+  lastName!: string;
 
   @Prop()
-  name: string;
+  name!: string;
 
   @Prop({ unique: true })
-  email: string;
+  email!: string;
 
   @Prop()
-  mobile: string;
+  mobile!: string;
 
   @Prop({ default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @Prop({ default: true })
-  isDelete: boolean;
+  isPublish!: boolean;
+
+  @Prop({ default: true })
+  isDelete!: boolean;
 
   @Prop({ default: false })
-  isDeleted: boolean;
+  isDeleted!: boolean;
 
   @Prop()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Prop({ default: "" })
   public stripeAccountId?: string;
@@ -52,7 +55,7 @@ export class User {
     type: [Vehicle],
     default: [],
   })
-  vehicles: Vehicle[];
+  vehicles!: Vehicle[];
   @Prop({ default: 0 })
 walletBalance!: number;
 }

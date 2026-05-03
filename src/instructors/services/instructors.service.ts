@@ -56,6 +56,14 @@ export class InstructorsService {
     );
   }
 
+  async setPublish(id: string, isPublish: boolean) {
+    return this.instructorModel.findByIdAndUpdate(
+      id,
+      { isPublish },
+      { new: true },
+    );
+  }
+
 
   async findAll({
     page,
