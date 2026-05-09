@@ -182,6 +182,7 @@ export class InstructorsService {
         $project: {
           id: '$_id',
           name: { $concat: ['$firstName', ' ', '$lastName'] },
+          stripeAccountId: 1,
           email: 1,
           mobile: 1,
           isActive: 1,

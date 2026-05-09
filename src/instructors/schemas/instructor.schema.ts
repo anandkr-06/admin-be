@@ -47,8 +47,8 @@ export class User {
   @Prop()
   createdAt!: Date;
 
-  @Prop({ default: "" })
-  public stripeAccountId?: string;
+  @Prop({ default: '' })
+public stripeAccountId!: string;
   
   // ✅ NEW FIELD (IMPORTANT)
   @Prop({
