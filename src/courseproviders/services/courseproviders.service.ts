@@ -52,6 +52,7 @@ export class CourseProvidersService {
           phone: 1,
           logoUrl: 1,
           websiteUrl: 1,
+          rtoNumber: 1,
           isActive: 1,
           isAgreedToTermsAndConditions: 1,
           isAgreedToCommunicationAndOffers: 1,

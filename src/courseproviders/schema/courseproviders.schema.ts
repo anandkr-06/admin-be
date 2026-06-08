@@ -40,6 +40,9 @@ export class CourseProvider extends Document {
   @Prop()
   websiteUrl?: string;
 
+  @Prop()
+  rtoNumber?: string;
+
   @Prop({ default: true })
   isActive!: boolean;
 
