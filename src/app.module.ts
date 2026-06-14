@@ -11,6 +11,7 @@ import { FeedbacksModule } from './feedbacks/feedbacks.module';
 import { GiftVouchersModule } from './giftvouchers/giftvouchers.module';
 import { OrdersModule } from './orders/orders.module';
 import { InstructorsReviewModule } from './reviews/admin-review.module';
+import { SuburbsModule } from './suburbs/suburbs.module';
 
 @Module({
   imports: [
@@ -27,7 +28,8 @@ import { InstructorsReviewModule } from './reviews/admin-review.module';
     FeedbacksModule,
     GiftVouchersModule,
     OrdersModule,
-    InstructorsReviewModule
+    InstructorsReviewModule,
+    SuburbsModule,
   ],
 })
 export class AppModule {}
