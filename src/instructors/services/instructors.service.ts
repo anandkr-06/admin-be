@@ -184,7 +184,7 @@ export class InstructorsService {
           name: { $concat: ['$firstName', ' ', '$lastName'] },
           stripeAccountId: 1,
           email: 1,
-          mobile: 1,
+          mobileNumber: 1,
           isActive: 1,
           isPublish: 1,
           createdAt: 1,
