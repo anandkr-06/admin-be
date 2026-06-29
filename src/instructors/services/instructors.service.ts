@@ -188,6 +188,7 @@ export class InstructorsService {
           isActive: 1,
           isPublish: 1,
           createdAt: 1,
+          profileImage:1,
 
           // 👇 Profile fields (adjust as per schema)
           bio: '$profile.bio',
