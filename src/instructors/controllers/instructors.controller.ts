@@ -1,58 +1,76 @@
-import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Query, Req, UseGuards } from "@nestjs/common";
-import { InstructorsService } from "../services/instructors.service";
-import { AdminInstructorsService } from "../services/admin-instructors.service";
-import { AuthGuard } from "@nestjs/passport";
-import { Patch, Param } from "@nestjs/common";
-import { Roles } from "../../common/decorators/roles.decorator";
-import { RolesGuard } from "../../common/guards/roles.guard";
-import { Types } from "mongoose";
-import { UpdateVehiclesDto } from "../dto/update-vehicles.dto";
-import { AdminQueryDto } from "src/common/dto/admin-query.dto";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  NotFoundException,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { InstructorsService } from '../services/instructors.service';
+import { AdminInstructorsService } from '../services/admin-instructors.service';
+import { AuthGuard } from '@nestjs/passport';
+import { Patch, Param } from '@nestjs/common';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Types } from 'mongoose';
+import { UpdateVehiclesDto } from '../dto/update-vehicles.dto';
+import { AdminQueryDto } from 'src/common/dto/admin-query.dto';
+import {
+  UpdateInstructorAdditionalInformationDto,
+  UpdateInstructorDocumentsDto,
+  UpdateInstructorPrivateVehicleDto,
+  UpdateInstructorProfileDto,
+  UpdateInstructorServiceAreasDto,
+  UpdateInstructorTestLocationsDto,
+  UpdateInstructorVehicleDto,
+} from '../dto/update-instructor-self.dto';
 
-@Controller("instructors")
+@Controller('instructors')
 export class InstructorsController {
-  constructor(private readonly instructorsService: InstructorsService,
-              private readonly adminInstructorsService: AdminInstructorsService
-              
+  constructor(
+    private readonly instructorsService: InstructorsService,
+    private readonly adminInstructorsService: AdminInstructorsService,
   ) {}
 
-
-  @Roles("ADMIN")
-  @Patch(":id/activate")
-  activate(@Param("id") id: string) {
+  @Roles('ADMIN')
+  @Patch(':id/activate')
+  activate(@Param('id') id: string) {
     return this.instructorsService.setActive(id, true);
   }
 
-  @Roles("ADMIN")
-  @Patch(":id/deactivate")
-  deactivate(@Param("id") id: string) {
+  @Roles('ADMIN')
+  @Patch(':id/deactivate')
+  deactivate(@Param('id') id: string) {
     return this.instructorsService.setActive(id, false);
   }
 
-/**
- * Is publish
- * @param id 
- * @returns 
- */
-  @Roles("ADMIN")
-  @Patch(":id/publish")
-  publish(@Param("id") id: string) {
+  /**
+   * Is publish
+   * @param id
+   * @returns
+   */
+  @Roles('ADMIN')
+  @Patch(':id/publish')
+  publish(@Param('id') id: string) {
     return this.instructorsService.setPublish(id, true);
   }
 
-  @Roles("ADMIN")
-  @Patch(":id/unpublish")
-  unpublish(@Param("id") id: string) {
+  @Roles('ADMIN')
+  @Patch(':id/unpublish')
+  unpublish(@Param('id') id: string) {
     return this.instructorsService.setPublish(id, false);
   }
 
-@Get()
+  @Get()
   findAll(
-    @Query("page") page = "1",
-    @Query("limit") limit = "10",
-    @Query("search") search = "",
-    @Query("status") status?: string,
-    @Query("role") role?: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('search') search = '',
+    @Query('status') status?: string,
+    @Query('role') role?: string,
   ) {
     return this.instructorsService.findAll({
       page: Number(page),
@@ -63,82 +81,137 @@ export class InstructorsController {
     });
   }
 
+  // 1️⃣ Profile
+  @Get(':id/profile')
+  getProfile(@Param('id') id: string) {
+    return this.instructorsService.getProfile(id);
+  }
 
-// 1️⃣ Profile
-@Get(":id/profile")
-getProfile(@Param("id") id: string) {
-  return this.instructorsService.getProfile(id);
-}
+  @Patch(':id/profile')
+  updateInstructorProfile(
+    @Param('id') id: string,
+    @Body() dto: UpdateInstructorProfileDto,
+  ) {
+    return this.instructorsService.updateInstructorProfile(id, dto);
+  }
 
-// 2️⃣ Orders
-@Get(":id/orders")
-getOrders(
-  @Param("id") id: string,
-  @Query("page") page = "1",
-  @Query("limit") limit = "10",
-  @Query("status") status?: string,
-  @Query("search") search?: string
-) {
-  return this.instructorsService.getOrders({
-    instructorId: id,
-    page: +page,
-    limit: +limit,
-    status,
-    search,
-  });
-}
+  @Patch(':id/documents')
+  updateInstructorDocuments(
+    @Param('id') id: string,
+    @Body() dto: UpdateInstructorDocumentsDto,
+  ) {
+    return this.instructorsService.updateInstructorDocuments(id, dto);
+  }
 
-@Get(":id/private-orders")
-getPrivaterOrders(
-  @Param("id") id: string,
-  @Query("page") page = "1",
-  @Query("limit") limit = "10",
-  @Query("status") status?: string,
-  @Query("search") search?: string
-) {
-  return this.instructorsService.getPrivateOrders({
-    instructorId: id,
-    page: +page,
-    limit: +limit,
-    status,
-    search,
-  });
-}
+  @Patch(':id/service-areas')
+  updateInstructorServiceAreas(
+    @Param('id') id: string,
+    @Body() dto: UpdateInstructorServiceAreasDto,
+  ) {
+    return this.instructorsService.updateInstructorServiceAreas(id, dto);
+  }
 
-// 3️⃣ Private Learners
-@Get(":id/private-learners")
-getPrivateLearners(
-  @Param("id") id: string,
-  @Query("page") page = "1",
-  @Query("limit") limit = "10",
-  @Query("search") search?: string,
-  @Query("status") status?: string
-) {
-  return this.instructorsService.getPrivateLearners({
-    instructorId: id,
-    page: +page,
-    limit: +limit,
-    search,
-    status,
-  });
-}
+  @Patch(':id/test-locations')
+  updateInstructorTestLocations(
+    @Param('id') id: string,
+    @Body() dto: UpdateInstructorTestLocationsDto,
+  ) {
+    return this.instructorsService.updateInstructorTestLocations(id, dto);
+  }
 
-// 4️⃣ Activate / Deactivate
-@Patch(":id/status")
-updateStatus(
-  @Param("id") id: string,
-  @Body("isActive") isActive: boolean
-) {
-  return this.instructorsService.updateStatus(id, isActive);
-}
+  @Patch(':id/vehicle/private')
+  updateInstructorPrivateVehicle(
+    @Param('id') id: string,
+    @Body() dto: UpdateInstructorPrivateVehicleDto,
+  ) {
+    return this.instructorsService.updateInstructorPrivateVehicle(id, dto);
+  }
 
-// 5️⃣ Soft delete
-@Delete(":id")
-softDelete(@Param("id") id: string) {
-  return this.instructorsService.softDelete(id);
-}
+  @Patch(':id/vehicle/auto')
+  updateInstructorAutoVehicle(
+    @Param('id') id: string,
+    @Body() dto: UpdateInstructorVehicleDto,
+  ) {
+    return this.instructorsService.updateInstructorVehicle(id, 'auto', dto);
+  }
 
-@Get(':id/stats')
+  @Patch(':id/additional-information')
+  updateInstructorAdditionalInformation(
+    @Param('id') id: string,
+    @Body() dto: UpdateInstructorAdditionalInformationDto,
+  ) {
+    return this.instructorsService.updateInstructorAdditionalInformation(
+      id,
+      dto,
+    );
+  }
+
+  // 2️⃣ Orders
+  @Get(':id/orders')
+  getOrders(
+    @Param('id') id: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.instructorsService.getOrders({
+      instructorId: id,
+      page: +page,
+      limit: +limit,
+      status,
+      search,
+    });
+  }
+
+  @Get(':id/private-orders')
+  getPrivaterOrders(
+    @Param('id') id: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.instructorsService.getPrivateOrders({
+      instructorId: id,
+      page: +page,
+      limit: +limit,
+      status,
+      search,
+    });
+  }
+
+  // 3️⃣ Private Learners
+  @Get(':id/private-learners')
+  getPrivateLearners(
+    @Param('id') id: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.instructorsService.getPrivateLearners({
+      instructorId: id,
+      page: +page,
+      limit: +limit,
+      search,
+      status,
+    });
+  }
+
+  // 4️⃣ Activate / Deactivate
+  @Patch(':id/status')
+  updateStatus(@Param('id') id: string, @Body('isActive') isActive: boolean) {
+    return this.instructorsService.updateStatus(id, isActive);
+  }
+
+  // 5️⃣ Soft delete
+  @Delete(':id')
+  softDelete(@Param('id') id: string) {
+    return this.instructorsService.softDelete(id);
+  }
+
+  @Get(':id/stats')
   async getInstructorStats(@Param('id') id: string) {
     if (!Types.ObjectId.isValid(id)) {
       throw new NotFoundException('Invalid instructor id');
@@ -150,69 +223,57 @@ softDelete(@Param("id") id: string) {
   }
 
   // @Roles("ADMIN")
-@Patch(":id/vehicles")
-updateVehicles(
-  @Param("id") id: string,
-  @Body() dto: UpdateVehiclesDto,
-) {
-  if (!dto.vehicles.length) {
-    throw new BadRequestException('At least one vehicle is required');
+  @Patch(':id/vehicles')
+  updateVehicles(@Param('id') id: string, @Body() dto: UpdateVehiclesDto) {
+    if (!dto.vehicles.length) {
+      throw new BadRequestException('At least one vehicle is required');
+    }
+    if (dto.vehicles.length > 2) {
+      throw new BadRequestException('Only auto and manual allowed');
+    }
+
+    return this.instructorsService.updateVehicles(id, dto);
   }
-  if (dto.vehicles.length > 2) {
-    throw new BadRequestException('Only auto and manual allowed');
+
+  @Get(':id/wallet')
+  getInstructorWallet(@Param('id') id: string, @Query() query: AdminQueryDto) {
+    return this.instructorsService.getWalletTransactions('userId', id, query);
   }
 
-  return this.instructorsService.updateVehicles(id, dto);
-}
+  @Get('admin/no-show-requests')
+  async getAllNoShowRequests(
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('status') status?: string,
+    @Query('requestedBy') requestedBy?: string,
+    @Query('search') search?: string,
+    @Query('sortBy') sortBy: string = 'createdAt',
+    @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'desc',
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.instructorsService.getAllNoShowRequests({
+      page: Number(page),
+      limit: Number(limit),
+      status,
+      requestedBy,
+      search,
+      sortBy,
+      sortOrder,
+      startDate,
+      endDate,
+    });
+  }
 
-@Get(':id/wallet')
-getInstructorWallet(
-  @Param('id') id: string,
-  @Query() query: AdminQueryDto,
-) {
-  return this.instructorsService.getWalletTransactions(
-    'userId',
-    id,
-    query,
-  );
-}
-
-@Get('admin/no-show-requests')
-async getAllNoShowRequests(
-  @Query('page') page = '1',
-  @Query('limit') limit = '10',
-  @Query('status') status?: string,
-  @Query('requestedBy') requestedBy?: string,
-  @Query('search') search?: string,
-  @Query('sortBy') sortBy: string = 'createdAt',
-  @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'desc',
-  @Query('startDate') startDate?: string,
-  @Query('endDate') endDate?: string,
-) {
-  return this.instructorsService.getAllNoShowRequests({
-    page: Number(page),
-    limit: Number(limit),
-    status,
-    requestedBy,
-    search,
-    sortBy,
-    sortOrder,
-    startDate,
-    endDate,
-  });
-}
-
-
- /* ===============================
+  /* ===============================
      ✅ APPROVE
   =============================== */
   @Patch('no-show-requests/:id/approve')
-  
   async approveNoShow(
     @Param('id') noShowRequestId: string,
     // @CurrentUser() user: JwtPayload,
-    @Body() body: { decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER';
-      remark: string}
+    @Body()
+    body: { decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER'; remark: string },
     //@Body('decision')
     // decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER',
   ) {
@@ -230,7 +291,7 @@ async getAllNoShowRequests(
     return this.instructorsService.approveNoShowSlot(
       noShowRequestId,
       // user.sub,
-      "69e132dcf5d95497780e164c",
+      '69e132dcf5d95497780e164c',
       body.decision,
       body.remark,
     );
@@ -256,5 +317,4 @@ async getAllNoShowRequests(
       remark,
     );
   }
-
 }

@@ -1,24 +1,55 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
 import {
-  User,
-  InstructorDocument,
-} from "../schemas/instructor.schema";
-import { PrivateLearner, PrivateLearnerDocument } from "../schemas/private-learner.schema";
-import { Order, OrderDocument } from "../schemas/orders.schema";
-import { PrivateOrder, PrivateOrderDocument } from "../schemas/private-order.schema";
-import { InstructorDocuments, InstructorProfile, InstructorProfileDocument } from "../schemas/instructro-profiles.schema";
-import { json } from "stream/consumers";
-import { AdminQueryDto } from "src/common/dto/admin-query.dto";
-import { WalletTransaction, WalletTransactionDocument } from "../schemas/wallet-transactions.schema";
-import { NoShowRequest, NoShowRequestDocument, NoShowStatus, NoShowDecision } from "../schemas/no-show-request.schema";
-import { InstructorsController } from "../controllers/instructors.controller";
-import { InstructorTransaction } from "../schemas/instructor-transactions.schema";
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import { User, InstructorDocument } from '../schemas/instructor.schema';
+import {
+  PrivateLearner,
+  PrivateLearnerDocument,
+} from '../schemas/private-learner.schema';
+import { Order, OrderDocument } from '../schemas/orders.schema';
+import {
+  PrivateOrder,
+  PrivateOrderDocument,
+} from '../schemas/private-order.schema';
+import {
+  InstructorDocuments,
+  InstructorProfile,
+  InstructorProfileDocument,
+} from '../schemas/instructro-profiles.schema';
+import { json } from 'stream/consumers';
+import { AdminQueryDto } from 'src/common/dto/admin-query.dto';
+import {
+  WalletTransaction,
+  WalletTransactionDocument,
+} from '../schemas/wallet-transactions.schema';
+import {
+  NoShowRequest,
+  NoShowRequestDocument,
+  NoShowStatus,
+  NoShowDecision,
+} from '../schemas/no-show-request.schema';
+import { InstructorsController } from '../controllers/instructors.controller';
+import { InstructorTransaction } from '../schemas/instructor-transactions.schema';
 
-import { calculateSlotDurationInHours, getDiscountSummary, normalizeTime } from "src/common/utils/admin-query.util";
-import { Learner, LearnerDocument } from "src/learners/schema/learner.schema";
-
+import {
+  calculateSlotDurationInHours,
+  getDiscountSummary,
+  normalizeTime,
+} from 'src/common/utils/admin-query.util';
+import { Learner, LearnerDocument } from 'src/learners/schema/learner.schema';
+import {
+  UpdateInstructorAdditionalInformationDto,
+  UpdateInstructorDocumentsDto,
+  UpdateInstructorPrivateVehicleDto,
+  UpdateInstructorProfileDto,
+  UpdateInstructorServiceAreasDto,
+  UpdateInstructorTestLocationsDto,
+  UpdateInstructorVehicleDto,
+} from '../dto/update-instructor-self.dto';
 
 @Injectable()
 export class InstructorsService {
@@ -46,7 +77,295 @@ export class InstructorsService {
 
     @InjectModel(Learner.name)
     private learnerModel: Model<LearnerDocument>,
-  ) { }
+  ) {}
+
+  private toObjectId(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid instructor id');
+    }
+
+    return new Types.ObjectId(id);
+  }
+
+  private async ensureInstructorExists(instructorId: string) {
+    const instructor = await this.instructorModel
+      .findById(this.toObjectId(instructorId))
+      .select('_id')
+      .lean();
+
+    if (!instructor) {
+      throw new NotFoundException('Instructor not found');
+    }
+  }
+
+  private async updateInstructorProfileDocument(
+    instructorId: string,
+    update: Record<string, unknown>,
+  ) {
+    const userId = this.toObjectId(instructorId);
+    await this.ensureInstructorExists(instructorId);
+
+    const updated = await this.instructorProfileModel.findOneAndUpdate(
+      { userId },
+      {
+        $set: update,
+        $setOnInsert: { userId },
+      },
+      {
+        new: true,
+        upsert: true,
+      },
+    );
+
+    return updated;
+  }
+
+  async updateInstructorDocuments(
+    instructorId: string,
+    dto: UpdateInstructorDocumentsDto,
+  ) {
+    const allowedDocuments = [
+      'vehicleInspectionCertificate',
+      'industryAuthorityCard',
+      'certificateOfCurrency',
+      'vehicleRegistration',
+      'driverLicence',
+      'blueCard',
+      'certificateIvMotorVehicleTraining',
+    ];
+
+    const update: Record<string, unknown> = {};
+
+    for (const documentName of allowedDocuments) {
+      const documentValue = dto[documentName];
+      if (!documentValue) continue;
+
+      for (const [field, value] of Object.entries(documentValue)) {
+        if (value !== undefined) {
+          update[`documents.${documentName}.${field}`] = value;
+        }
+      }
+    }
+
+    if (!Object.keys(update).length) {
+      throw new BadRequestException('At least one document field is required');
+    }
+
+    const updated = await this.updateInstructorProfileDocument(
+      instructorId,
+      update,
+    );
+
+    return {
+      message: 'Instructor documents updated successfully',
+      data: updated,
+    };
+  }
+
+  async updateInstructorServiceAreas(
+    instructorId: string,
+    dto: UpdateInstructorServiceAreasDto,
+  ) {
+    if (!Array.isArray(dto.serviceAreas)) {
+      throw new BadRequestException('serviceAreas must be an array');
+    }
+
+    const updated = await this.updateInstructorProfileDocument(instructorId, {
+      serviceAreas: dto.serviceAreas,
+      suburbs: dto.serviceAreas.map((area) => area.suburb),
+    });
+
+    return {
+      message: 'Instructor service areas updated successfully',
+      data: updated,
+    };
+  }
+
+  async updateInstructorTestLocations(
+    instructorId: string,
+    dto: UpdateInstructorTestLocationsDto,
+  ) {
+    if (!Array.isArray(dto.testLocations)) {
+      throw new BadRequestException('testLocations must be an array');
+    }
+
+    const updated = await this.updateInstructorProfileDocument(instructorId, {
+      testLocations: dto.testLocations,
+    });
+
+    return {
+      message: 'Instructor test locations updated successfully',
+      data: updated,
+    };
+  }
+
+  async updateInstructorPrivateVehicle(
+    instructorId: string,
+    dto: UpdateInstructorPrivateVehicleDto,
+  ) {
+    const update: Record<string, unknown> = {
+      'vehicles.private.hasVehicle': true,
+    };
+
+    if (dto.autoPricePerHour !== undefined) {
+      update['vehicles.private.auto.pricePerHour'] = dto.autoPricePerHour;
+    }
+    if (dto.autoTestPricePerHour !== undefined) {
+      update['vehicles.private.auto.testPricePerHour'] =
+        dto.autoTestPricePerHour;
+    }
+    if (dto.manualPricePerHour !== undefined) {
+      update['vehicles.private.manual.pricePerHour'] = dto.manualPricePerHour;
+    }
+    if (dto.manualTestPricePerHour !== undefined) {
+      update['vehicles.private.manual.testPricePerHour'] =
+        dto.manualTestPricePerHour;
+    }
+
+    const updated = await this.updateInstructorProfileDocument(
+      instructorId,
+      update,
+    );
+
+    return {
+      message: 'Instructor private vehicle prices updated successfully',
+      data: updated,
+    };
+  }
+
+  async updateInstructorVehicle(
+    instructorId: string,
+    vehicleType: 'auto' | 'manual',
+    dto: UpdateInstructorVehicleDto,
+  ) {
+    const update: Record<string, unknown> = {
+      [`vehicles.${vehicleType}.hasVehicle`]: true,
+    };
+
+    if (dto.pricePerHour !== undefined) {
+      update[`vehicles.${vehicleType}.pricePerHour`] = dto.pricePerHour;
+    }
+    if (dto.testPricePerHour !== undefined) {
+      update[`vehicles.${vehicleType}.testPricePerHour`] = dto.testPricePerHour;
+    }
+
+    const detailFields = [
+      'registrationNumber',
+      'licenceCategory',
+      'make',
+      'model',
+      'color',
+      'year',
+      'transmissionType',
+      'ancapSafetyRating',
+      'hasDualControls',
+    ];
+
+    for (const field of detailFields) {
+      const value = dto[field];
+      if (value !== undefined) {
+        update[`vehicles.${vehicleType}.details.${field}`] = value;
+      }
+    }
+
+    const updated = await this.updateInstructorProfileDocument(
+      instructorId,
+      update,
+    );
+
+    return {
+      message: `Instructor ${vehicleType} vehicle updated successfully`,
+      data: updated,
+    };
+  }
+
+  async updateInstructorProfile(
+    instructorId: string,
+    dto: UpdateInstructorProfileDto,
+  ) {
+    const userUpdate: Record<string, unknown> = {};
+    const userFields = [
+      'firstName',
+      'lastName',
+      'dob',
+      'postCode',
+      'transmissionType',
+      'description',
+      'gender',
+      'profileImage',
+      'proficientLanguages',
+    ];
+
+    for (const field of userFields) {
+      const value = dto[field];
+      if (value !== undefined) {
+        userUpdate[field] = value;
+      }
+    }
+
+    if (!Object.keys(userUpdate).length) {
+      throw new BadRequestException('At least one profile field is required');
+    }
+
+    if (dto.firstName !== undefined || dto.lastName !== undefined) {
+      const existing = await this.instructorModel
+        .findById(this.toObjectId(instructorId))
+        .select('firstName lastName')
+        .lean();
+
+      if (!existing) {
+        throw new NotFoundException('Instructor not found');
+      }
+
+      const firstName = dto.firstName ?? existing.firstName;
+      const lastName = dto.lastName ?? existing.lastName;
+      userUpdate.name = `${firstName} ${lastName}`.trim();
+    }
+
+    const updated = await this.instructorModel.findByIdAndUpdate(
+      this.toObjectId(instructorId),
+      { $set: userUpdate },
+      { new: true },
+    );
+
+    if (!updated) {
+      throw new NotFoundException('Instructor not found');
+    }
+
+    return {
+      message: 'Instructor profile updated successfully',
+      data: updated,
+    };
+  }
+
+  async updateInstructorAdditionalInformation(
+    instructorId: string,
+    dto: UpdateInstructorAdditionalInformationDto,
+  ) {
+    const update: Record<string, unknown> = {};
+
+    for (const [field, value] of Object.entries(dto)) {
+      if (value !== undefined) {
+        update[field] = value;
+      }
+    }
+
+    if (!Object.keys(update).length) {
+      throw new BadRequestException(
+        'At least one additional information field is required',
+      );
+    }
+
+    const updated = await this.updateInstructorProfileDocument(
+      instructorId,
+      update,
+    );
+
+    return {
+      message: 'Instructor additional information updated successfully',
+      data: updated,
+    };
+  }
 
   async setActive(id: string, isActive: boolean) {
     return this.instructorModel.findByIdAndUpdate(
@@ -63,7 +382,6 @@ export class InstructorsService {
       { new: true },
     );
   }
-
 
   async findAll({
     page,
@@ -87,14 +405,14 @@ export class InstructorsService {
     // 🔍 Search by name or email
     if (search) {
       query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
       ];
     }
 
     // 🟢 Status filter
-    if (status === "active") query.isActive = true;
-    if (status === "inactive") query.isActive = false;
+    if (status === 'active') query.isActive = true;
+    if (status === 'inactive') query.isActive = false;
 
     // 🧑‍🏫 Role filter
     if (role) query.role = role;
@@ -121,12 +439,11 @@ export class InstructorsService {
     };
   }
 
-
   async updateStatus(id: string, isActive: boolean) {
     return this.instructorModel.findByIdAndUpdate(
       id,
       { isActive },
-      { new: true }
+      { new: true },
     );
   }
 
@@ -188,7 +505,7 @@ export class InstructorsService {
           isActive: 1,
           isPublish: 1,
           createdAt: 1,
-          profileImage:1,
+          profileImage: 1,
 
           // 👇 Profile fields (adjust as per schema)
           bio: '$profile.bio',
@@ -225,15 +542,12 @@ export class InstructorsService {
     status?: string;
     search?: string;
   }) {
-
-
     const instructor = await this.instructorProfileModel
-      .findOne({ userId: new Types.ObjectId(instructorId) }).select('_id')
+      .findOne({ userId: new Types.ObjectId(instructorId) })
+      .select('_id')
       .lean<{ _id: Types.ObjectId }>();
 
-
-
-    if (!instructor) throw new NotFoundException("Instructor not found");
+    if (!instructor) throw new NotFoundException('Instructor not found');
 
     const query: any = {
       instructorId: new Types.ObjectId(instructor._id),
@@ -258,7 +572,7 @@ export class InstructorsService {
 
       // ✅ Always allow name search
       orConditions.push({
-        "learner.name": { $regex: search, $options: "i" },
+        'learner.name': { $regex: search, $options: 'i' },
       });
 
       query.$or = orConditions;
@@ -270,7 +584,7 @@ export class InstructorsService {
         .skip((page - 1) * limit)
         .limit(limit)
         .sort({ createdAt: -1 })
-        .populate("learnerId", "firstName lastName email")
+        .populate('learnerId', 'firstName lastName email')
         .lean(),
 
       this.orderModel.countDocuments(query),
@@ -307,9 +621,7 @@ export class InstructorsService {
     if (status) query.status = status;
 
     if (search) {
-      query.$or = [
-        { orderId: new RegExp(search, "i") },
-      ];
+      query.$or = [{ orderId: new RegExp(search, 'i') }];
     }
 
     const [data, total] = await Promise.all([
@@ -319,8 +631,8 @@ export class InstructorsService {
         .limit(limit)
         .sort({ createdAt: -1 })
         .populate({
-          path: "privateLearnerId",
-          select: "firstName lastName email mobileNumber",
+          path: 'privateLearnerId',
+          select: 'firstName lastName email mobileNumber',
         })
         .lean(),
 
@@ -338,7 +650,6 @@ export class InstructorsService {
     };
   }
 
-
   // 3️⃣ Private Learners
   async getPrivateLearners({
     instructorId,
@@ -354,18 +665,18 @@ export class InstructorsService {
     status?: string;
   }) {
     const query: any = {
-      instructorId: (instructorId),
+      instructorId: instructorId,
       //isDeleted: false,
     };
 
-    if (status === "active") query.isActive = true;
-    if (status === "inactive") query.isActive = false;
+    if (status === 'active') query.isActive = true;
+    if (status === 'inactive') query.isActive = false;
 
     if (search) {
       query.$or = [
-        { firstName: new RegExp(search, "i") },
-        { email: new RegExp(search, "i") },
-        { mobileNumber: new RegExp(search, "i") },
+        { firstName: new RegExp(search, 'i') },
+        { email: new RegExp(search, 'i') },
+        { mobileNumber: new RegExp(search, 'i') },
       ];
     }
 
@@ -409,14 +720,13 @@ export class InstructorsService {
     const instructor = await this.instructorModel.findByIdAndUpdate(
       id,
       { isDeleted: true },
-      { new: true }
+      { new: true },
     );
 
-    if (!instructor) throw new NotFoundException("Instructor not found");
+    if (!instructor) throw new NotFoundException('Instructor not found');
 
     return { success: true };
   }
-
 
   async updateVehicles(
     instructorId: string,
@@ -446,7 +756,6 @@ export class InstructorsService {
       data: updated,
     };
   }
-
 
   async getWalletTransactions(
     field: 'learnerId' | 'userId',
@@ -791,7 +1100,9 @@ export class InstructorsService {
 
     type SortField = (typeof allowedSortFields)[number];
 
-    const safeSortBy: SortField = allowedSortFields.includes(sortBy as SortField)
+    const safeSortBy: SortField = allowedSortFields.includes(
+      sortBy as SortField,
+    )
       ? (sortBy as SortField)
       : 'createdAt';
 
@@ -941,7 +1252,6 @@ export class InstructorsService {
           attachment: '$slot.actionMeta.attachment',
           comment: '$slot.actionMeta.comment',
 
-
           /* ✅ SAFE LEARNER NAME */
           learnerName: {
             $cond: [
@@ -959,10 +1269,7 @@ export class InstructorsService {
 
       {
         $facet: {
-          data: [
-            { $skip: (page - 1) * limit },
-            { $limit: limit },
-          ],
+          data: [{ $skip: (page - 1) * limit }, { $limit: limit }],
           total: [{ $count: 'count' }],
         },
       },
@@ -983,8 +1290,6 @@ export class InstructorsService {
       },
     };
   }
-
-
 
   async rejectNoShowSlot(
     noShowRequestId: string,
@@ -1010,7 +1315,7 @@ export class InstructorsService {
     noShowRequestId: string,
     adminId: string,
     decision: 'PAY_INSTRUCTOR' | 'REFUND_LEARNER',
-    remark: string
+    remark: string,
   ) {
     const request = await this.noShowRequestModel.findById(noShowRequestId);
 
@@ -1030,9 +1335,7 @@ export class InstructorsService {
       throw new BadRequestException('Order not found');
     }
 
-    const slot = order.bookedSlots.id(
-      new Types.ObjectId(request.slotId),
-    );
+    const slot = order.bookedSlots.id(new Types.ObjectId(request.slotId));
 
     if (!slot) {
       throw new BadRequestException('Slot not found');
@@ -1040,9 +1343,7 @@ export class InstructorsService {
 
     // 🔥 IMPORTANT FIX
     if (slot.status !== 'NOSHOW_REQUESTED') {
-      throw new BadRequestException(
-        `Invalid slot status: ${slot.status}`,
-      );
+      throw new BadRequestException(`Invalid slot status: ${slot.status}`);
     }
 
     const hours = calculateSlotDurationInHours(
@@ -1061,14 +1362,14 @@ export class InstructorsService {
     } else {
       await this.handleLearnerRefund(order, slot, hours);
       slot.status = 'CANCELLED';
-      request.decision = NoShowDecision.REFUND_LEARNER
+      request.decision = NoShowDecision.REFUND_LEARNER;
     }
 
     /* ===============================
        ✅ UPDATE REQUEST
     =============================== */
 
-    request.status = NoShowStatus.APPROVED
+    request.status = NoShowStatus.APPROVED;
     request.adminId = new Types.ObjectId(adminId);
     request.adminRemark = remark;
 
@@ -1095,7 +1396,8 @@ export class InstructorsService {
     );
 
     const platformCommission = grossAmount * 0.17;
-    const instructorEarning = grossAmount - platformCommission - discountCommission;
+    const instructorEarning =
+      grossAmount - platformCommission - discountCommission;
 
     // 💳 Create instructor transaction (report history)
     const txn = await this.instructorTransactionModel.create({
@@ -1115,7 +1417,9 @@ export class InstructorsService {
     });
 
     // 💰 Update instructor wallet + ledger
-    const instructorProfile = await this.instructorProfileModel.findById(order.instructorId);
+    const instructorProfile = await this.instructorProfileModel.findById(
+      order.instructorId,
+    );
     const instructor = await this.instructorModel.findByIdAndUpdate(
       instructorProfile?.userId,
       { $inc: { walletBalance: instructorEarning } },
@@ -1179,7 +1483,6 @@ export class InstructorsService {
     return { success: true, refundedAmount: totalAmount };
   }
 
-
   /**
    * Unified FIFO Credit Consumption Utility
    * Handles both payout and refund flows consistently.
@@ -1196,10 +1499,12 @@ export class InstructorsService {
     pricePerHour: number,
     mode: 'CONSUME' | 'RESTORE',
   ) {
-    const credits = await this.walletModel.find({
-      learnerId,
-      type: 'CREDIT',
-    }).sort({ createdAt: 1 }); // FIFO
+    const credits = await this.walletModel
+      .find({
+        learnerId,
+        type: 'CREDIT',
+      })
+      .sort({ createdAt: 1 }); // FIFO
 
     let hoursRemaining = hours;
     let totalAmount = 0;
@@ -1210,7 +1515,8 @@ export class InstructorsService {
       if (hoursRemaining <= 0) break;
 
       const availableHours =
-        (mode === 'CONSUME' ? credit.remainingHours : credit.consumedHours) ?? 0;
+        (mode === 'CONSUME' ? credit.remainingHours : credit.consumedHours) ??
+        0;
 
       if (availableHours <= 0) continue;
 
@@ -1247,6 +1553,4 @@ export class InstructorsService {
       creditsUsed,
     };
   }
-
-
 }

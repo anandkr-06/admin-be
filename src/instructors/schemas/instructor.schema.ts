@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { Document } from "mongoose";
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
 
 export type InstructorDocument = User & Document;
 
@@ -32,6 +32,27 @@ export class User {
   @Prop()
   mobile!: string;
 
+  @Prop()
+  dob?: string;
+
+  @Prop()
+  postCode?: string;
+
+  @Prop()
+  transmissionType?: string;
+
+  @Prop()
+  description?: string;
+
+  @Prop()
+  gender?: string;
+
+  @Prop()
+  profileImage?: string;
+
+  @Prop({ type: [String], default: [] })
+  proficientLanguages?: string[];
+
   @Prop({ default: true })
   isActive!: boolean;
 
@@ -48,8 +69,8 @@ export class User {
   createdAt!: Date;
 
   @Prop({ default: '' })
-public stripeAccountId!: string;
-  
+  public stripeAccountId!: string;
+
   // ✅ NEW FIELD (IMPORTANT)
   @Prop({
     type: [Vehicle],
@@ -57,7 +78,7 @@ public stripeAccountId!: string;
   })
   vehicles!: Vehicle[];
   @Prop({ default: 0 })
-walletBalance!: number;
+  walletBalance!: number;
 }
 
 export const InstructorSchema = SchemaFactory.createForClass(User);

@@ -1,70 +1,67 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-
 import { Types } from 'mongoose';
 const defaultDocuments = {
-
   certificateOfCurrency: {
-    documentNumber: "123456789",
+    documentNumber: '123456789',
     issueDate: null,
     expiryDate: null,
     expiryCycleMonths: 3,
     attachment: null,
-    status: 'PENDING'
+    status: 'PENDING',
   },
 
   vehicleInspectionCertificate: {
-    documentNumber: "987654321",
+    documentNumber: '987654321',
     issueDate: null,
     expiryDate: null,
     expiryCycleMonths: 6,
     attachment: null,
-    status: 'PENDING'
+    status: 'PENDING',
   },
 
   industryAuthorityCard: {
-    documentNumber: "1122334455",
+    documentNumber: '1122334455',
     expiryDate: null,
     attachment: null,
-    status: 'PENDING'
+    status: 'PENDING',
   },
 
   vehicleRegistration: {
-    documentNumber: "5544332211",
+    documentNumber: '5544332211',
     issueDate: null,
     expiryDate: null,
     expiryCycleMonths: 12,
     attachment: null,
-    status: 'PENDING'
+    status: 'PENDING',
   },
 
   driverLicence: {
-    documentNumber: "5544332211",
+    documentNumber: '5544332211',
     issueDate: null,
     expiryDate: null,
     expiryCycleMonths: 12,
     attachment: null,
-    status: 'PENDING'
+    status: 'PENDING',
   },
   blueCard: {
-    documentNumber: "5544332211",
+    documentNumber: '5544332211',
     issueDate: null,
     expiryDate: null,
     expiryCycleMonths: 12,
     attachment: null,
-    status: 'PENDING'
+    status: 'PENDING',
   },
   certificateIvMotorVehicleTraining: {
-    documentNumber: "5544332211",
+    documentNumber: '5544332211',
     issueDate: null,
     expiryDate: null,
     expiryCycleMonths: 12,
     attachment: null,
-    status: 'PENDING'
-  }
-
-}
+    status: 'PENDING',
+  },
+};
 export class InstructorDocument {
   @Prop()
   documentNumber?: string;
@@ -86,7 +83,6 @@ export class InstructorDocument {
 }
 
 export class InstructorDocuments {
-
   @Prop({ type: InstructorDocument })
   certificateOfCurrency?: InstructorDocument;
 
@@ -103,6 +99,15 @@ export class InstructorDocuments {
 
   @Prop({ type: InstructorDocument })
   vehicleRegistration?: InstructorDocument;
+
+  @Prop({ type: InstructorDocument })
+  driverLicence?: InstructorDocument;
+
+  @Prop({ type: InstructorDocument })
+  blueCard?: InstructorDocument;
+
+  @Prop({ type: InstructorDocument })
+  certificateIvMotorVehicleTraining?: InstructorDocument;
 }
 
 const defaultVehicles = {
@@ -117,10 +122,10 @@ const defaultVehicles = {
       model: null,
       color: null,
       year: null,
-      transmissionType: "auto",
+      transmissionType: 'auto',
       ancapSafetyRating: null,
-      hasDualControls: false
-    }
+      hasDualControls: false,
+    },
   },
   manual: {
     hasVehicle: false,
@@ -133,22 +138,22 @@ const defaultVehicles = {
       model: null,
       color: null,
       year: null,
-      transmissionType: "manual",
+      transmissionType: 'manual',
       ancapSafetyRating: null,
-      hasDualControls: false
-    }
+      hasDualControls: false,
+    },
   },
   private: {
     hasVehicle: true,
     auto: {
       pricePerHour: 40,
-      testPricePerHour: 50
+      testPricePerHour: 50,
     },
     manual: {
       pricePerHour: 40,
-      testPricePerHour: 50
-    }
-  }
+      testPricePerHour: 50,
+    },
+  },
 };
 
 const defaultFinancialDetails = {
@@ -157,9 +162,8 @@ const defaultFinancialDetails = {
   accountNumber: null,
   bsbNumber: null,
   abnNumber: null,
-  businessName: null
+  businessName: null,
 };
-
 
 //availbility
 @Schema({ _id: false })
@@ -184,8 +188,6 @@ export class TimeSlot {
 
   @Prop({ type: String, default: null })
   state?: string;
-
-
 }
 
 @Schema({ _id: false })
@@ -242,7 +244,6 @@ export class FinancialDetails {
 // @Schema({ timestamps: true })
 @Schema({ collection: 'instructorprofiles', timestamps: true })
 export class InstructorProfile {
-
   @Prop({ type: Types.ObjectId, ref: 'User', unique: true })
   userId!: Types.ObjectId;
 
@@ -281,6 +282,7 @@ export class InstructorProfile {
         suburbId: { type: String, default: null },
         lat: { type: Number, default: null },
         long: { type: Number, default: null },
+        state: { type: String, default: null },
       },
     ],
     default: [],
@@ -292,6 +294,7 @@ export class InstructorProfile {
     suburbId?: string;
     lat?: number;
     long?: number;
+    state?: string;
   }[];
 
   @Prop({
@@ -319,11 +322,9 @@ export class InstructorProfile {
   @Prop({ type: Availability, default: { weeks: [] } })
   availability!: Availability;
 
-
-
   @Prop({
     type: Object,
-    default: defaultVehicles
+    default: defaultVehicles,
   })
   vehicles!: {
     auto?: VehicleWithDetails;
@@ -337,9 +338,24 @@ export class InstructorProfile {
 
   @Prop({
     type: FinancialDetails,
-    default: defaultFinancialDetails
+    default: defaultFinancialDetails,
   })
   financialDetails?: FinancialDetails;
+
+  @Prop({ type: [String], default: [] })
+  languagesKnown?: string[];
+
+  @Prop({ type: [String], default: [] })
+  proficientLanguages?: string[];
+
+  @Prop({ default: null })
+  instructorExperienceYears?: number;
+
+  @Prop({ default: false })
+  isMemberOfDrivingAssociation?: boolean;
+
+  @Prop({ type: [String], default: [] })
+  drivingAssociations?: string[];
 
   @Prop({
     type: {
@@ -352,7 +368,6 @@ export class InstructorProfile {
     avg: number;
     total: number;
   };
-  
 
   @Prop({ default: false })
   isVerified!: boolean;
@@ -385,7 +400,7 @@ export class VehicleDetails {
   hasDualControls?: boolean;
 }
 
-
-
-export type InstructorProfileDocument = InstructorProfile & Document & { _id: Types.ObjectId };
-export const InstructorProfileSchema = SchemaFactory.createForClass(InstructorProfile);
+export type InstructorProfileDocument = InstructorProfile &
+  Document & { _id: Types.ObjectId };
+export const InstructorProfileSchema =
+  SchemaFactory.createForClass(InstructorProfile);
