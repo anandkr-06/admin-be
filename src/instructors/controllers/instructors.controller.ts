@@ -135,6 +135,14 @@ export class InstructorsController {
     return this.instructorsService.updateInstructorVehicle(id, 'auto', dto);
   }
 
+  @Patch(':id/vehicle/manual')
+  updateInstructorManualVehicle(
+    @Param('id') id: string,
+    @Body() dto: UpdateInstructorVehicleDto,
+  ) {
+    return this.instructorsService.updateInstructorVehicle(id, 'manual', dto);
+  }
+
   @Patch(':id/additional-information')
   updateInstructorAdditionalInformation(
     @Param('id') id: string,
