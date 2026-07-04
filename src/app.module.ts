@@ -12,10 +12,11 @@ import { GiftVouchersModule } from './giftvouchers/giftvouchers.module';
 import { OrdersModule } from './orders/orders.module';
 import { InstructorsReviewModule } from './reviews/admin-review.module';
 import { SuburbsModule } from './suburbs/suburbs.module';
+import { TestLocationsModule } from './testlocations/testlocations.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ".env", }), // ✅ Loads .env globally
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }), // ✅ Loads .env globally
     MongooseModule.forRoot(process.env.DATABASE_URL!, {
       autoCreate: true,
     }),
@@ -30,6 +31,7 @@ import { SuburbsModule } from './suburbs/suburbs.module';
     OrdersModule,
     InstructorsReviewModule,
     SuburbsModule,
+    TestLocationsModule,
   ],
 })
 export class AppModule {}

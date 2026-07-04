@@ -528,6 +528,7 @@ export class InstructorsService {
           updatedAt: 1,
           profileImage: 1,
           userProficientLanguages: '$proficientLanguages',
+          vehicleImages: '$vehicles',
 
           bio: '$profile.bio',
           vehicles: '$profile.vehicles',
