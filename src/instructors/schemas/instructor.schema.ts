@@ -62,6 +62,9 @@ export class User {
   @Prop({ default: true })
   isActive!: boolean;
 
+  @Prop({ default: false })
+  isPaid!: boolean;
+
   @Prop({ default: true })
   isPublish!: boolean;
 
