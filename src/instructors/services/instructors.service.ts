@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import * as bcrypt from 'bcrypt';
 import { User, InstructorDocument } from '../schemas/instructor.schema';
 import {
   PrivateLearner,
@@ -44,6 +45,7 @@ import { Learner, LearnerDocument } from 'src/learners/schema/learner.schema';
 import {
   UpdateInstructorAdditionalInformationDto,
   UpdateInstructorDocumentsDto,
+  UpdateInstructorPasswordDto,
   UpdateInstructorPrivateVehicleDto,
   UpdateInstructorProfileDto,
   UpdateInstructorServiceAreasDto,
@@ -287,6 +289,9 @@ export class InstructorsService {
     const userFields = [
       'firstName',
       'lastName',
+      'email',
+      'mobile',
+      'mobileNumber',
       'dob',
       'postCode',
       'transmissionType',
@@ -301,6 +306,15 @@ export class InstructorsService {
       if (value !== undefined) {
         userUpdate[field] = value;
       }
+    }
+
+    if (dto.mobileNumber !== undefined) {
+      userUpdate.mobile = dto.mobileNumber;
+      userUpdate.mobileNumber = dto.mobileNumber;
+    }
+
+    if (dto.mobile !== undefined && dto.mobileNumber === undefined) {
+      userUpdate.mobileNumber = dto.mobile;
     }
 
     if (!Object.keys(userUpdate).length) {
@@ -364,6 +378,41 @@ export class InstructorsService {
     return {
       message: 'Instructor additional information updated successfully',
       data: updated,
+    };
+  }
+
+  async updateInstructorPassword(
+    instructorId: string,
+    dto: UpdateInstructorPasswordDto,
+  ) {
+    const password = dto.newPassword ?? dto.password;
+
+    if (!password) {
+      throw new BadRequestException('Password is required');
+    }
+
+    if (password.length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const updated = await this.instructorModel
+      .findByIdAndUpdate(
+        this.toObjectId(instructorId),
+        { $set: { password: hashedPassword } },
+        { new: true },
+      )
+      .select('_id')
+      .lean();
+
+    if (!updated) {
+      throw new NotFoundException('Instructor not found');
+    }
+
+    return {
+      message: 'Instructor password updated successfully',
+      _id: updated._id,
     };
   }
 

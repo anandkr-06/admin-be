@@ -30,7 +30,13 @@ export class User {
   email!: string;
 
   @Prop()
+  password?: string;
+
+  @Prop()
   mobile!: string;
+
+  @Prop()
+  mobileNumber?: string;
 
   @Prop()
   dob?: string;

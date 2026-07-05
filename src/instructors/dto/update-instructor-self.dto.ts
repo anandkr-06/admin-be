@@ -1,9 +1,11 @@
 import {
   IsArray,
   IsBoolean,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -205,6 +207,18 @@ export class UpdateInstructorProfileDto {
 
   @IsOptional()
   @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  mobile?: string;
+
+  @IsOptional()
+  @IsString()
+  mobileNumber?: string;
+
+  @IsOptional()
+  @IsString()
   dob?: string;
 
   @IsOptional()
@@ -256,4 +270,16 @@ export class UpdateInstructorAdditionalInformationDto {
   @IsArray()
   @IsString({ each: true })
   drivingAssociations?: string[];
+}
+
+export class UpdateInstructorPasswordDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  password?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  newPassword?: string;
 }

@@ -21,6 +21,7 @@ import { AdminQueryDto } from 'src/common/dto/admin-query.dto';
 import {
   UpdateInstructorAdditionalInformationDto,
   UpdateInstructorDocumentsDto,
+  UpdateInstructorPasswordDto,
   UpdateInstructorPrivateVehicleDto,
   UpdateInstructorProfileDto,
   UpdateInstructorServiceAreasDto,
@@ -152,6 +153,14 @@ export class InstructorsController {
       id,
       dto,
     );
+  }
+
+  @Patch(':id/updatePassword')
+  updateInstructorPassword(
+    @Param('id') id: string,
+    @Body() dto: UpdateInstructorPasswordDto,
+  ) {
+    return this.instructorsService.updateInstructorPassword(id, dto);
   }
 
   // 2️⃣ Orders
