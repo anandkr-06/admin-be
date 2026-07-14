@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { SearchPaginationDto } from '../dto/pagination.dto'; // Adjust the path as needed
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -14,6 +14,18 @@ export class SuburbService {
     @InjectModel('Suburb')
     private readonly suburbModel: Model<SuburbDocument>,
   ) {}
+
+  private normalizeBoolean(value: unknown, fieldName: string) {
+    if (typeof value === 'boolean') return value;
+
+    if (typeof value === 'string') {
+      const normalized = value.toLowerCase().trim();
+      if (normalized === 'true') return true;
+      if (normalized === 'false') return false;
+    }
+
+    throw new BadRequestException(`${fieldName} must be true or false`);
+  }
 
   async getAllSuburbsCoordinates(suburb: string) {
     const suburbNames = suburb.split(',').map((n) => n.trim().toUpperCase());
@@ -192,10 +204,16 @@ export class SuburbService {
   }
 
   async updateSuburb(id: string, payload: UpdateSuburbDto) {
+    const update: any = { ...payload };
+
+    if (payload.isActive !== undefined) {
+      update.isActive = this.normalizeBoolean(payload.isActive, 'isActive');
+    }
+
     return this.suburbModel.findByIdAndUpdate(
       id,
       {
-        ...payload,
+        ...update,
         ...(payload.name && {
           name: payload.name.toUpperCase(),
           locality: payload.name.toUpperCase(),

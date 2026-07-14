@@ -18,6 +18,9 @@ export class CreateSuburbDto {
   long!: number;
 
   @IsOptional()
+  isActive?: boolean | string;
+
+  @IsOptional()
   geometry?: {
     type: string;
     coordinates: number[][][];

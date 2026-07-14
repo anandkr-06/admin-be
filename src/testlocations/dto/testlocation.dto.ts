@@ -1,10 +1,4 @@
-import {
-  IsBoolean,
-  IsNumber,
-  IsOptional,
-  IsString,
-  ValidateIf,
-} from 'class-validator';
+import { IsOptional, IsString, ValidateIf } from 'class-validator';
 
 export class CreateTestLocationDto {
   @IsString()
@@ -23,8 +17,7 @@ export class CreateTestLocationDto {
   postCode!: string | number;
 
   @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
+  isActive?: boolean | string;
 }
 
 export class UpdateTestLocationDto {
@@ -48,6 +41,5 @@ export class UpdateTestLocationDto {
   postCode?: string | number;
 
   @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
+  isActive?: boolean | string;
 }

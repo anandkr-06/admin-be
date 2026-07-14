@@ -22,6 +22,18 @@ export class TestLocationsService {
     private readonly testLocationModel: Model<TestLocationDocument>,
   ) {}
 
+  private normalizeBoolean(value: unknown, fieldName: string) {
+    if (typeof value === 'boolean') return value;
+
+    if (typeof value === 'string') {
+      const normalized = value.toLowerCase().trim();
+      if (normalized === 'true') return true;
+      if (normalized === 'false') return false;
+    }
+
+    throw new BadRequestException(`${fieldName} must be true or false`);
+  }
+
   async getTestLocations(
     { search = '', page = 1, limit = 10 }: SearchPaginationDto = {
       search: '',
@@ -71,6 +83,7 @@ export class TestLocationsService {
           address: 1,
           suburb: 1,
           postCode: 1,
+          isActive: 1,
         })
         .skip(skip)
         .limit(safeLimit)
@@ -92,9 +105,14 @@ export class TestLocationsService {
   }
 
   async createTestLocation(dto: CreateTestLocationDto) {
+    const isActive =
+      dto.isActive === undefined
+        ? true
+        : this.normalizeBoolean(dto.isActive, 'isActive');
+
     const created = await this.testLocationModel.create({
       ...dto,
-      isActive: dto.isActive ?? true,
+      isActive,
     });
 
     return {
@@ -120,7 +138,8 @@ export class TestLocationsService {
 
     for (const [key, value] of Object.entries(dto)) {
       if (value !== undefined) {
-        update[key] = value;
+        update[key] =
+          key === 'isActive' ? this.normalizeBoolean(value, 'isActive') : value;
       }
     }
 
