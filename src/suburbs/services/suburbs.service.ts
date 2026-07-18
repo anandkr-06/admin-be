@@ -90,6 +90,7 @@ export class SuburbService {
           state: 1,
           long: 1,
           lat: 1,
+          isActive: 1,
         })
         .skip(skip)
         .limit(limit)
