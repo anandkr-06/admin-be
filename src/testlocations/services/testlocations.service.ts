@@ -94,7 +94,10 @@ export class TestLocationsService {
     ]);
 
     return {
-      data,
+      data: data.map((location) => ({
+        ...location,
+        isActive: location.isActive ?? true,
+      })),
       meta: {
         page,
         limit,
