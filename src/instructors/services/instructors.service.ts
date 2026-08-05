@@ -107,15 +107,13 @@ export class InstructorsService {
     const userId = this.toObjectId(instructorId);
     await this.ensureInstructorExists(instructorId);
 
-    const updated = await this.instructorProfileModel.findOneAndUpdate(
-      { userId },
+    const updated = await this.instructorModel.findByIdAndUpdate(
+      this.toObjectId(instructorId),
       {
         $set: update,
-        $setOnInsert: { userId },
       },
       {
         new: true,
-        upsert: true,
       },
     );
 
