@@ -356,24 +356,29 @@ export class InstructorsService {
     instructorId: string,
     dto: UpdateInstructorAdditionalInformationDto,
   ) {
-    const update: Record<string, unknown> = {};
+    const userUpdate: Record<string, unknown> = {};
 
     for (const [field, value] of Object.entries(dto)) {
       if (value !== undefined) {
-        update[field] = value;
+        userUpdate[field] = value;
       }
     }
 
-    if (!Object.keys(update).length) {
+    if (!Object.keys(userUpdate).length) {
       throw new BadRequestException(
         'At least one additional information field is required',
       );
     }
 
-    const updated = await this.updateInstructorProfileDocument(
-      instructorId,
-      update,
+    const updated = await this.instructorModel.findByIdAndUpdate(
+      this.toObjectId(instructorId),
+      { $set: userUpdate },
+      { new: true },
     );
+
+    if (!updated) {
+      throw new NotFoundException('Instructor not found');
+    }
 
     return {
       message: 'Instructor additional information updated successfully',
@@ -590,13 +595,11 @@ export class InstructorsService {
           isVerified: '$profile.isVerified',
           serviceAreas: '$profile.serviceAreas',
           testLocations: '$profile.testLocations',
-          languagesKnown: '$profile.languagesKnown',
-          proficientLanguages: {
-            $ifNull: ['$profile.proficientLanguages', '$proficientLanguages'],
-          },
-          instructorExperienceYears: '$profile.instructorExperienceYears',
-          isMemberOfDrivingAssociation: '$profile.isMemberOfDrivingAssociation',
-          drivingAssociations: '$profile.drivingAssociations',
+          languagesKnown: 1,
+          proficientLanguages: 1,
+          instructorExperienceYears: 1,
+          isMemberOfDrivingAssociation: 1,
+          drivingAssociations: 1,
           profileCreatedAt: '$profile.createdAt',
           profileUpdatedAt: '$profile.updatedAt',
         },

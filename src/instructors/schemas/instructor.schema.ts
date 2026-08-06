@@ -59,6 +59,18 @@ export class User {
   @Prop({ type: [String], default: [] })
   proficientLanguages?: string[];
 
+  @Prop({ type: [String], default: [] })
+  languagesKnown?: string[];
+
+  @Prop({ default: null })
+  instructorExperienceYears?: number;
+
+  @Prop({ default: false })
+  isMemberOfDrivingAssociation?: boolean;
+
+  @Prop({ type: [String], default: [] })
+  drivingAssociations?: string[];
+
   @Prop({ default: true })
   isActive!: boolean;
 
